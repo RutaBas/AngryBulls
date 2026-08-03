@@ -1,0 +1,436 @@
+/* BULLPEN — the whole stylesheet.
+
+   Soft paper-flat, per the brief: no gradients, no glass, no neumorphism. One
+   very soft shadow, on cards only. The board is ruled, not raised. Spacing
+   snaps to 4 / 8 / 16 / 24 / 32. Every colour is a custom property set by
+   js/theme.js, so a theme switch never needs a re-render.
+
+   Mobile-first, iPhone portrait; the desktop rule at the bottom just centres
+   the same 430px column. */
+
+:root {
+  --bg: #F3EAD6; --card: #FBF5E8; --chip: #E7DCC2;
+  --rule: #6E2639; --ink: #6E2639; --face: #fff; --bullink: #4a1b28;
+  --serif: "Playfair Display", Georgia, serif;
+  --sans: "Nunito Sans", system-ui, -apple-system, sans-serif;
+  --pad: 16px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--sans); line-height: 1.5;
+  /* pull-to-refresh and rubber-banding off: the board is a tap surface */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+h1, h2, h3, .serif { font-family: var(--serif); font-weight: 500; }
+
+/* Every tappable thing gets the app's tactile snap. */
+button:active, .tappable:active { transform: scale(.92); }
+button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ------------------------------------------------------------- screens */
+
+.screen {
+  position: fixed; inset: 0; display: none; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.screen.on { display: block; animation: rise .26s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.pad {
+  position: relative; z-index: 2;
+  min-height: 100%;
+  padding: calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + var(--pad))
+           calc(env(safe-area-inset-bottom) + 16px) calc(env(safe-area-inset-left) + var(--pad));
+  display: flex; flex-direction: column;
+}
+.grow { flex: 1 1 auto; min-height: 8px; }
+.grow.half { flex: .5; }
+.dim { opacity: .65; }
+.note { font-size: 12px; opacity: .6; margin: 16px 0 0; }
+
+/* --------------------------------------------------------------- home */
+
+/* The stock plan: the pen boundaries themselves drawn large across the whole
+   screen, tilted, at ~13%. Built by js/meta-ui.js from a fixed 7x7 map. */
+.plan {
+  position: absolute; inset: -8% -14%; z-index: 1; opacity: .13;
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  transform: rotate(-8deg); pointer-events: none;
+}
+.is-dark .plan { opacity: .17; }
+.plan i { display: block; aspect-ratio: 1; }
+
+.brand { text-align: center; }
+.appmark {
+  width: 78px; height: 78px; margin: 0 auto 10px; border-radius: 24px;
+  background: var(--p0f); border: 2.5px solid var(--rule);
+  display: flex; align-items: center; justify-content: center;
+  --horn: var(--p0d);
+}
+.appmark .bullsvg { width: 70%; height: 70%; }
+.bullsvg { width: 100%; height: 100%; display: block; }
+.title { font-size: 40px; letter-spacing: .02em; margin: 0; line-height: 1; }
+.tagline { font-family: var(--serif); font-style: italic; font-size: 14.5px; opacity: .72; margin: 8px 0 0; }
+
+.primary {
+  display: block; width: 100%; background: var(--rule); color: var(--card);
+  border-radius: 14px; text-align: center; font-family: var(--serif); font-size: 19px;
+  padding: 15px; margin-bottom: 12px; min-height: 44px;
+}
+.primary small {
+  display: block; font-family: var(--sans); font-size: 11px; opacity: .75;
+  letter-spacing: .1em; text-transform: uppercase; margin-top: 3px;
+}
+
+.tierrows { display: grid; gap: 8px; margin-bottom: 11px; }
+.tierrow {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 2.5px solid var(--rule); border-radius: 13px; padding: 0 13px;
+  min-height: 52px; color: var(--bullink); text-align: left;
+}
+.is-dark .tierrow { color: var(--ink); }
+.tierrow .nm { font-family: var(--serif); font-size: 18px; flex: 1; }
+.tierrow .mt { font-size: 10.5px; opacity: .72; }
+.tierrow .pg { font-family: var(--serif); font-size: 13.5px; }
+.tierrow.locked { opacity: .55; }
+
+.dailyrow {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; border-radius: 12px; border: 1.5px dashed var(--rule);
+  font-size: 13px; min-height: 44px;
+}
+.dailyrow b { font-family: var(--serif); font-size: 15px; font-weight: 500; }
+.dailyrow .streak { margin-left: auto; font-family: var(--serif); font-size: 13px; }
+.dailyrow.done { background: var(--chip); border-style: solid; }
+
+.homebar { display: flex; justify-content: center; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+.linkbtn {
+  font-family: var(--serif); font-size: 13px; opacity: .72; padding: 10px 10px; min-height: 44px;
+}
+
+/* --------------------------------------------------------------- game */
+
+.game { padding-top: calc(env(safe-area-inset-top) + 10px); }
+.topbar { display: flex; align-items: center; gap: 8px; }
+.iconbtn {
+  min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-family: var(--serif);
+}
+.gridicon { display: grid; grid-template-columns: repeat(3, 4px); gap: 3.5px; }
+.gridicon i { width: 4px; height: 4px; border-radius: 50%; background: var(--ink); display: block; }
+.homebtn { font-size: 24px; }
+/* The timer pill doubles as the pause button, so it carries a full 44px target
+   and the two pause bars that say so. */
+.timer {
+  margin-left: auto; font-family: var(--serif); font-size: 14px; background: var(--chip);
+  border-radius: 99px; padding: 6px 14px; font-variant-numeric: tabular-nums;
+  min-height: 44px; display: flex; align-items: center; gap: 8px;
+}
+.pausebars { display: flex; gap: 3px; }
+.pausebars i { display: block; width: 3px; height: 12px; border-radius: 1px; background: var(--ink); opacity: .75; }
+
+.levelbar { position: relative; height: 78px; text-align: center; }
+.bignum {
+  font-family: var(--serif); font-size: 72px; line-height: 1; opacity: .15;
+  position: absolute; inset: 0; pointer-events: none;
+}
+.levelrow { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 22px; }
+.levelrow .lbl { font-family: var(--serif); font-style: italic; font-size: 17px; }
+.levelrow .arw { opacity: .7; font-size: 13px; min-width: 44px; min-height: 44px; }
+.levelrow .arw[disabled] { opacity: .2; }
+
+.board {
+  display: grid; border: 3px solid var(--rule); border-radius: 10px; overflow: hidden;
+  /* touch-action:none, not manipulation: a drag across the board paints dots
+     and must not scroll the page under the finger. The page still scrolls
+     normally everywhere outside the board. */
+  width: 100%; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.cell {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; padding: 0;
+  border-right: 1px solid rgba(0,0,0,.13); border-bottom: 1px solid rgba(0,0,0,.13);
+  background: var(--pf);
+  --horn: var(--pd);
+  transition: background-color .2s ease;
+}
+.is-dark .cell { border-right-color: rgba(255,255,255,.10); border-bottom-color: rgba(255,255,255,.10); }
+.cell.pR { border-right: 2.5px solid var(--rule); }
+.cell.pB { border-bottom: 2.5px solid var(--rule); }
+.cell.penDone { filter: saturate(1.45) brightness(.94); }
+.cell .dot { width: 5.5px; height: 5.5px; border-radius: 50%; background: var(--pd); display: block; }
+.cell .bullsvg { width: 78%; height: 78%; }
+
+/* Dots are scratch notes: instant. Bulls LAND — the one committed act. */
+.cell.landed .bullsvg { animation: land .22s cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes land {
+  0% { transform: scale(.3); opacity: 0; }
+  70% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+/* Only the offending unit shakes, never the screen. */
+.cell.bad { animation: shake .34s ease; box-shadow: inset 0 0 0 2.5px var(--rule); }
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); } 45% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+.cell.hinted { box-shadow: inset 0 0 0 3px var(--rule); animation: pulse 1.1s ease 2; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+/* The solved wave. */
+.cell.wave .bullsvg { animation: wave .5s ease both; }
+@keyframes wave {
+  0% { transform: none; } 40% { transform: translateY(-7px) scale(1.14); } 100% { transform: none; }
+}
+
+.remain { margin-top: 12px; }
+.remain .lbl { font-family: var(--serif); font-style: italic; font-size: 14px; }
+.remain .pips { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.remain .pips i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); display: block; }
+.remain .pips i.off { opacity: .17; }
+
+.hintbar {
+  margin-top: 12px; background: var(--card); border: 2px solid var(--rule); border-radius: 12px;
+  padding: 10px 12px; font-size: 12.5px; box-shadow: 0 6px 0 rgba(0,0,0,.06);
+}
+.hintbar b { font-family: var(--serif); font-size: 14.5px; font-weight: 500; display: block; margin-bottom: 2px; }
+
+.tools { display: flex; gap: 12px; justify-content: center; margin-top: auto; padding-top: 16px; }
+.tool {
+  flex: 1; max-width: 110px; min-height: 56px; border-radius: 14px; background: var(--chip);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.tool b { font-size: 20px; font-weight: 400; line-height: 1; }
+.tool span { font-family: var(--serif); font-size: 12px; }
+.tool[disabled] { opacity: .35; }
+
+/* ---------------------------------------------------------- sub-screens */
+
+.pagehead { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px; }
+.pagehead h2 { font-size: 24px; margin: 4px 0 0; }
+.pagehead .sub { font-size: 12px; opacity: .65; margin: 2px 0 0; }
+.pagehead .iconbtn { font-size: 30px; margin-left: -8px; }
+
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
+.chip {
+  border: 2px solid var(--rule); border-radius: 99px; padding: 8px 14px; min-height: 44px;
+  font-family: var(--serif); font-size: 13px; white-space: nowrap; opacity: .6;
+}
+.chip.on { background: var(--rule); color: var(--card); opacity: 1; }
+.chip.locked { border-style: dashed; }
+
+.gate {
+  background: var(--chip); border-radius: 12px; padding: 12px; font-size: 12.5px; margin-bottom: 12px;
+}
+.gate .bar { display: block; height: 6px; border-radius: 99px; background: rgba(0,0,0,.12); margin-top: 8px; }
+.gate .bar i { display: block; height: 100%; border-radius: 99px; background: var(--rule); }
+
+.pagestrip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+.pagestrip button {
+  min-width: 62px; min-height: 44px; border-radius: 10px; background: var(--chip);
+  font-family: var(--serif); font-size: 12.5px; white-space: nowrap;
+}
+.pagestrip button.on { background: var(--rule); color: var(--card); }
+
+.lvlgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding-bottom: 24px; }
+.lvl {
+  aspect-ratio: 1; border-radius: 12px; background: var(--chip); border: 2px solid transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 56px;
+}
+.lvl .n { font-family: var(--serif); font-size: 15px; }
+.lvl.done { background: var(--p3f); color: var(--bullink); }
+.is-dark .lvl.done { color: var(--ink); }
+.lvl.cur { border-color: var(--rule); }
+.lvl.locked { opacity: .35; }
+.pips3 { display: flex; gap: 3px; }
+.pips3 i { width: 5px; height: 5px; border-radius: 1.5px; background: currentColor; opacity: .2; }
+.pips3 i.on { opacity: 1; }
+
+.streakbar {
+  display: flex; align-items: center; gap: 12px; background: var(--chip);
+  border-radius: 14px; padding: 12px 16px; margin-bottom: 16px;
+}
+.streakbar b { font-family: var(--serif); font-size: 26px; display: block; line-height: 1; }
+.streakbar span { font-size: 11px; opacity: .65; }
+.freezes { margin-left: auto; display: flex; gap: 5px; }
+.freezes i { width: 9px; height: 9px; border-radius: 50%; background: var(--rule); opacity: .2; display: block; }
+.freezes i.on { opacity: .85; }
+
+.calhead, .calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.calhead { margin-bottom: 5px; }
+.calhead .dow { text-align: center; font-size: 10px; opacity: .5; }
+.day {
+  aspect-ratio: 1; border-radius: 10px; background: var(--chip); font-size: 13px;
+  display: flex; align-items: center; justify-content: center; min-height: 40px;
+}
+.day.solved { background: var(--p3f); color: var(--bullink); font-weight: 700; }
+.is-dark .day.solved { color: var(--ink); }
+.day.today { border: 2px solid var(--rule); }
+.day.future { opacity: .3; }
+
+.rec { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 10px; box-shadow: 0 6px 0 rgba(0,0,0,.05); }
+.rechead { display: flex; align-items: baseline; gap: 8px; }
+.rechead .nm { font-family: var(--serif); font-size: 18px; }
+.rechead .sz { font-size: 11px; opacity: .6; }
+.recstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.recstats span { font-size: 10px; opacity: .6; text-transform: uppercase; letter-spacing: .08em; }
+.recstats b { display: block; font-family: var(--serif); font-size: 19px; letter-spacing: 0; text-transform: none; opacity: 1; }
+.trend { margin-top: 10px; font-size: 12px; opacity: .8; }
+.recdaily { background: var(--chip); border-radius: 12px; padding: 12px; font-size: 12.5px; }
+
+.seth { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .55; margin: 16px 0 8px; }
+.themes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.themebtn {
+  display: flex; align-items: center; gap: 10px; border: 2px solid var(--rule); border-radius: 12px;
+  padding: 12px; min-height: 52px; font-family: var(--serif); font-size: 14px; opacity: .6;
+}
+.themebtn.on { opacity: 1; background: var(--chip); }
+.themebtn i { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--rule); display: block; }
+.rowbtn {
+  display: flex; width: 100%; align-items: center; justify-content: space-between;
+  background: var(--chip); border-radius: 12px; padding: 14px; min-height: 52px;
+  font-family: var(--serif); font-size: 15px; margin-bottom: 8px;
+}
+.rowbtn.danger { color: #b0303c; }
+.is-dark .rowbtn.danger { color: #F0AFA9; }
+
+/* ---------------------------------------------------------------- win */
+
+.dlg {
+  position: fixed; inset: 0; z-index: 40; display: none;
+  flex-direction: column; overflow-y: auto;
+  padding: calc(env(safe-area-inset-top) + 62px) 20px calc(env(safe-area-inset-bottom) + 20px);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+.dlg.open { display: flex; animation: rise .3s ease both; }
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti i {
+  position: absolute; width: 8px; height: 8px; border-radius: 2px; opacity: .9; display: block;
+  animation: fall linear both;
+}
+@keyframes fall {
+  from { transform: translateY(-14vh) rotate(0deg); }
+  to { transform: translateY(110vh) rotate(540deg); }
+}
+
+.wincard {
+  position: relative; width: 100%; max-width: 360px; background: var(--card);
+  border: 2.5px solid var(--rule); border-radius: 22px; padding: 22px 18px; text-align: center;
+  box-shadow: 0 8px 0 rgba(0,0,0,.08);
+  /* The bull tab hangs over the card's top edge, so the CARD must not clip —
+     the dialog scrolls instead when the content is taller than the screen. */
+  /* auto margins centre the card without ever clipping its top when the
+     content is taller than the screen — the dialog scrolls instead. */
+  margin: auto;
+}
+.wincard .bulltop {
+  width: 62px; height: 62px; margin: -46px auto 8px; border-radius: 20px;
+  background: var(--card); border: 2.5px solid var(--rule);
+  display: flex; align-items: center; justify-content: center; --horn: var(--p0d);
+}
+.wincard .bulltop .bullsvg { width: 70%; height: 70%; }
+/* The solved image comes first — a small render of the board that was just won. */
+.winboard {
+  display: grid; margin: 4px auto 12px; border: 2px solid var(--rule); border-radius: 6px;
+  overflow: hidden; width: max-content;
+}
+.winboard i { display: block; position: relative; }
+.winboard i.b::after {
+  content: ""; position: absolute; inset: 22%; border-radius: 50%; background: var(--bullink);
+}
+.is-dark .winboard i.b::after { background: var(--face); }
+.wincard h3 { font-size: 27px; margin: 0; }
+.wincard .sublbl { font-family: var(--serif); font-style: italic; font-size: 13.5px; opacity: .7; margin: 2px 0 12px; }
+
+/* Stars in the game's own vocabulary: three bull marks, not ★★★. */
+.starrow { display: flex; gap: 12px; justify-content: center; margin-bottom: 14px; }
+.starrow .st {
+  width: 34px; height: 34px; border-radius: 10px; background: var(--chip);
+  display: flex; align-items: center; justify-content: center; opacity: .28; --horn: var(--rule);
+}
+.starrow .st .bullsvg { width: 80%; height: 80%; }
+.starrow .st.on { opacity: 1; background: var(--p2f); --horn: var(--p2d); }
+.starrow .st.land { animation: landstar .42s cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes landstar {
+  0% { transform: scale(.2) rotate(-16deg); } 70% { transform: scale(1.15); } 100% { transform: none; }
+}
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat { background: var(--chip); border-radius: 11px; padding: 9px 4px; }
+.stat b { display: block; font-family: var(--serif); font-size: 19px; font-weight: 500; }
+.stat span { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; opacity: .62; }
+/* The only saturated block on the screen. */
+.rankbadge {
+  background: var(--rule); color: var(--card); border-radius: 10px; padding: 8px;
+  font-family: var(--serif); font-size: 12px; letter-spacing: .1em; margin-bottom: 12px;
+}
+.best { font-size: 12px; opacity: .75; margin: 0 0 14px; min-height: 1px; }
+.winbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.winbtns.one { grid-template-columns: 1fr; }
+.wb { border-radius: 12px; padding: 13px; font-family: var(--serif); font-size: 15px; min-height: 48px; }
+.wb.solid { background: var(--rule); color: var(--card); }
+.wb.ghost { border: 2px solid var(--rule); }
+
+.howto { text-align: left; }
+.howto ul { padding-left: 18px; margin: 10px 0 16px; font-size: 13.5px; }
+.howto li { margin-bottom: 8px; }
+.inlinedot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--rule); vertical-align: middle;
+}
+
+/* -------------------------------------------------------------- pause */
+
+/* Fully opaque in the theme's card colour — the board underneath must be
+   invisible, not softened. Sits above the board but below the busy veil. */
+.pauseveil {
+  position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+  overflow-y: auto; background: var(--card);
+  padding: calc(env(safe-area-inset-top) + 62px) 20px calc(env(safe-area-inset-bottom) + 20px);
+  animation: rise .22s ease both;
+}
+.pauseveil[hidden] { display: none; }
+.pausecard {
+  position: relative; width: 100%; max-width: 340px; margin: auto; text-align: center;
+  background: var(--bg); border: 2.5px solid var(--rule); border-radius: 22px;
+  padding: 22px 18px; box-shadow: 0 8px 0 rgba(0,0,0,.08);
+}
+.pausecard .bulltop {
+  width: 62px; height: 62px; margin: -46px auto 8px; border-radius: 20px;
+  background: var(--bg); border: 2.5px solid var(--rule);
+  display: flex; align-items: center; justify-content: center; --horn: var(--p0d);
+}
+.pausecard .bulltop .bullsvg { width: 70%; height: 70%; }
+.pausecard h3 { font-size: 27px; margin: 0; }
+.pausecard .sublbl {
+  font-family: var(--serif); font-style: italic; font-size: 13.5px; opacity: .7; margin: 2px 0 0;
+}
+.pauseclock {
+  font-family: var(--serif); font-size: 40px; line-height: 1.15;
+  font-variant-numeric: tabular-nums; margin: 6px 0 4px;
+}
+
+.busy {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  font-family: var(--serif); font-style: italic; font-size: 15px;
+}
+.busy[hidden] { display: none; }
+
+/* --------------------------------------------------------------- desktop */
+@media (min-width: 520px) {
+  .pad { max-width: 430px; margin: 0 auto; }
+  .dlg { padding: 40px; }
+}

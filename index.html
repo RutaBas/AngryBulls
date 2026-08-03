@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F3EAD6" id="meta-theme">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Star Battle, penned. Place the bulls so every row, column and pen holds its quota — and no two ever touch.">
+<!-- the three iOS ones -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="BULLPEN">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BULLPEN</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- The bull mark, defined once and instanced everywhere. Per-instance colour
+     comes from --horn / --face / --bullink, so one symbol serves every pen. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="bull" viewBox="0 0 32 30">
+    <path d="M6 8C3.5 6.5 2 8 2.5 10.5C3 13 5.5 13.5 7.5 12.5" stroke="var(--horn)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M26 8c2.5-1.5 4 0 3.5 2.5C29 13 26.5 13.5 24.5 12.5" stroke="var(--horn)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M7 11c0-4 4-6.5 9-6.5s9 2.5 9 6.5c0 5-1.5 8-3.5 10-1.6 1.6-3.4 2.2-5.5 2.2s-3.9-.6-5.5-2.2C8.5 19 7 16 7 11Z" fill="var(--face)" stroke="var(--bullink)" stroke-width="2"/>
+    <circle cx="12.6" cy="12.4" r="1.35" fill="var(--bullink)"/>
+    <circle cx="19.4" cy="12.4" r="1.35" fill="var(--bullink)"/>
+    <path d="M11.5 18.5c0-1.6 2-2.5 4.5-2.5s4.5.9 4.5 2.5-2 3-4.5 3-4.5-1.4-4.5-3Z" fill="var(--horn)" stroke="var(--bullink)" stroke-width="1.6"/>
+    <circle cx="14.2" cy="18.6" r=".8" fill="var(--bullink)"/>
+    <circle cx="17.8" cy="18.6" r=".8" fill="var(--bullink)"/>
+  </symbol>
+</svg>
+
+<!-- ============================================================== HOME -->
+<section class="screen on" id="screen-home">
+  <div class="plan" id="home-plan" aria-hidden="true"></div>
+  <div class="pad home">
+    <div class="grow half"></div>
+    <div class="brand">
+      <div class="appmark"><svg class="bullsvg"><use href="#bull"/></svg></div>
+      <h1 class="title">BULLPEN</h1>
+      <p class="tagline">One bull per pen. None may touch.</p>
+    </div>
+    <div class="grow"></div>
+
+    <button class="primary" id="btn-continue" type="button">
+      <span id="continue-main">Play</span><small id="continue-sub"></small>
+    </button>
+
+    <div class="tierrows" id="tier-list"></div>
+
+    <button class="dailyrow" id="btn-daily" type="button">
+      <b>Daily</b><span class="dim" id="daily-date"></span>
+      <span class="streak" id="home-streak"></span>
+    </button>
+
+    <div class="homebar">
+      <button class="linkbtn" id="btn-calendar" type="button">Calendar</button>
+      <button class="linkbtn" id="btn-records" type="button">Records</button>
+      <button class="linkbtn" id="btn-howto" type="button">How to play</button>
+      <button class="linkbtn" id="btn-settings" type="button">Settings</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== GAME -->
+<section class="screen" id="screen-game">
+  <div class="pad game">
+    <div class="topbar">
+      <button class="iconbtn" id="btn-map" type="button" aria-label="Level select">
+        <span class="gridicon"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </button>
+      <button class="iconbtn homebtn" id="btn-tohome" type="button" aria-label="Home">⌂</button>
+      <!-- The timer pill IS the pause control. It already stands for elapsed
+           time, so tapping it to stop the clock needs no explaining and costs
+           the tight top bar no extra chrome. -->
+      <button class="timer" id="btn-pause" type="button" aria-label="Pause">
+        <span class="pausebars" aria-hidden="true"><i></i><i></i></span>
+        <span id="timer">0:00</span>
+      </button>
+    </div>
+
+    <div class="levelbar">
+      <div class="bignum" id="big-num"></div>
+      <div class="levelrow">
+        <button class="arw" id="btn-prev" type="button" aria-label="Previous level">◀</button>
+        <span class="lbl" id="level-lbl">Level</span>
+        <button class="arw" id="btn-next" type="button" aria-label="Next level">▶</button>
+      </div>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <div class="remain">
+      <div class="lbl">Remaining Bulls</div>
+      <div class="pips" id="remain-pips"></div>
+    </div>
+
+    <div class="hintbar" id="hintbar" hidden></div>
+
+    <div class="tools">
+      <button class="tool" id="btn-clear" type="button"><b>🗑</b><span>Clear</span></button>
+      <button class="tool" id="btn-undo" type="button"><b>↺</b><span>Undo</span></button>
+      <button class="tool" id="btn-hint" type="button"><b>💡</b><span>Hint</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================== LEVEL MAP -->
+<section class="screen" id="screen-map">
+  <div class="pad">
+    <div class="pagehead">
+      <button class="iconbtn" id="map-back" type="button" aria-label="Back">‹</button>
+      <div><h2 id="map-name">Paddock</h2><p class="sub" id="map-sub"></p></div>
+    </div>
+    <div class="chips" id="map-tiers"></div>
+    <div class="gate" id="map-gate" hidden></div>
+    <div class="pagestrip" id="map-pages"></div>
+    <div class="lvlgrid" id="map-grid"></div>
+  </div>
+</section>
+
+<!-- ============================================================= DAILY -->
+<section class="screen" id="screen-daily">
+  <div class="pad">
+    <div class="pagehead">
+      <button class="iconbtn" id="daily-back" type="button" aria-label="Back">‹</button>
+      <div><h2>Daily</h2><p class="sub" id="daily-month"></p></div>
+    </div>
+    <button class="primary" id="btn-daily-play" type="button">
+      <span id="daily-play-main">Play today</span><small id="daily-play-sub"></small>
+    </button>
+    <div class="streakbar">
+      <div><b id="daily-streak-n">0</b><span id="daily-streak-lab">day streak</span></div>
+      <div class="freezes" id="daily-freezes"></div>
+    </div>
+    <div class="cal">
+      <div class="calhead" id="cal-head"></div>
+      <div class="calgrid" id="cal-grid"></div>
+    </div>
+    <p class="note">Past days stay playable. Future days unlock on the day.</p>
+  </div>
+</section>
+
+<!-- =========================================================== RECORDS -->
+<section class="screen" id="screen-records">
+  <div class="pad">
+    <div class="pagehead">
+      <button class="iconbtn" id="records-back" type="button" aria-label="Back">‹</button>
+      <div><h2>Records</h2><p class="sub">Best, average and where you're heading.</p></div>
+    </div>
+    <div id="records-list"></div>
+    <div class="recdaily" id="records-daily"></div>
+  </div>
+</section>
+
+<!-- ========================================================== SETTINGS -->
+<section class="screen" id="screen-settings">
+  <div class="pad">
+    <div class="pagehead">
+      <button class="iconbtn" id="settings-back" type="button" aria-label="Back">‹</button>
+      <div><h2>Settings</h2><p class="sub">Theme, sound and progress.</p></div>
+    </div>
+    <h3 class="seth">Theme</h3>
+    <div class="themes" id="theme-list"></div>
+    <h3 class="seth">Sound</h3>
+    <button class="rowbtn" id="btn-mute" type="button">Sound<span id="mute-state">On</span></button>
+    <h3 class="seth">Progress</h3>
+    <button class="rowbtn" id="btn-howto2" type="button">How to play<span>›</span></button>
+    <button class="rowbtn danger" id="btn-reset" type="button">Reset all progress<span>⌫</span></button>
+    <p class="note" id="about-line"></p>
+  </div>
+</section>
+
+<!-- ============================================================== WIN -->
+<div class="dlg" id="dlg-win">
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <div class="wincard">
+    <div class="bulltop"><svg class="bullsvg"><use href="#bull"/></svg></div>
+    <div class="winboard" id="winboard" aria-hidden="true"></div>
+    <h3 id="win-word">Penned!</h3>
+    <p class="sublbl" id="win-sub"></p>
+    <div class="starrow" id="win-stars">
+      <span class="st"><svg class="bullsvg"><use href="#bull"/></svg></span>
+      <span class="st"><svg class="bullsvg"><use href="#bull"/></svg></span>
+      <span class="st"><svg class="bullsvg"><use href="#bull"/></svg></span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="win-time">0:00</b><span>Time</span></div>
+      <div class="stat"><b id="win-mid-v">—</b><span id="win-mid-k">Par</span></div>
+      <div class="stat"><b id="win-best">—</b><span id="win-best-k">Your best</span></div>
+    </div>
+    <div class="rankbadge" id="win-rank" hidden></div>
+    <p class="best" id="win-note"></p>
+    <div class="winbtns">
+      <button class="wb ghost" id="btn-win-home" type="button">Home</button>
+      <button class="wb solid" id="btn-win-next" type="button">Next ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================= PAUSE -->
+<!-- OPAQUE, not a blur: a blurred board can be read off a screenshot, and a
+     pause that leaves the board legible stops the clock without stopping the
+     solving — which would make par, records and every best time meaningless. -->
+<div class="pauseveil" id="pause-veil" hidden>
+  <div class="pausecard">
+    <div class="bulltop"><svg class="bullsvg"><use href="#bull"/></svg></div>
+    <h3>Paused</h3>
+    <p class="sublbl" id="pause-where"></p>
+    <div class="pauseclock" id="pause-time">0:00</div>
+    <p class="best">The board is covered and the clock is stopped.</p>
+    <div class="winbtns">
+      <button class="wb ghost" id="btn-pause-home" type="button">Home</button>
+      <button class="wb solid" id="btn-pause-resume" type="button">Resume</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ HOW TO -->
+<div class="dlg" id="dlg-howto">
+  <div class="wincard howto">
+    <h3>How to play</h3>
+    <p>The grid is split into <b>pens</b> — the areas ringed in a heavy line.</p>
+    <ul>
+      <li>Every <b>row</b>, every <b>column</b> and every <b>pen</b> holds exactly the same number of bulls.</li>
+      <li><b>No two bulls may touch</b> — not even at a corner.</li>
+      <li>Tap a cell to cycle it: empty → <span class="inlinedot"></span> your own "no bull" note → 🐂 bull → empty.</li>
+      <li>Nothing can be lost. <b>Undo</b> takes back any move; <b>Hint</b> shows the next move the rules actually force, and tells you why.</li>
+    </ul>
+    <div class="winbtns one">
+      <button class="wb solid" id="btn-howto-close" type="button">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== BUSY VEIL -->
+<div class="busy" id="busy" hidden><span>Laying out the pens…</span></div>
+
+<!-- the certified logic core, in load order -->
+<script src="js/rng.js"></script>
+<script src="js/solver.js"></script>
+<script src="js/generator.js"></script>
+<!-- the shared meta-layer, vendored by games/_shared/sync.js -->
+<script src="js/meta/store.js"></script>
+<script src="js/meta/rng.js"></script>
+<script src="js/meta/progress.js"></script>
+<script src="js/meta/daily.js"></script>
+<script src="js/meta/records.js"></script>
+<script src="js/meta/rank.js"></script>
+<script src="js/meta/index.js"></script>
+<!-- the app layer -->
+<script src="js/par.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/meta-config.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/game.js"></script>
+<script src="js/meta-ui.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

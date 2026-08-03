@@ -1,0 +1,24 @@
+# --- build cruft ---
+node_modules/
+package-lock.json
+*.log
+
+# --- test artifacts ---
+test/shot-*.png
+
+# --- level-build cache (regenerable; js/levels.js is the committed output) ---
+scripts/.cache/
+
+# --- design-process visual artifacts (kept on disk, out of the repo) ---
+# design-brief.md IS committed — it's useful repo documentation.
+# Move it here instead if you'd rather keep the written brief local-only.
+design-*.html
+accent-compare*.html
+*-review.html
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
