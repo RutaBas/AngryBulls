@@ -65,24 +65,26 @@ for (const t of BULLPEN_TIERS) {
   check(t.key + ": rebuilt board is still uniquely solvable", badSeed === 0, badSeed + " not unique");
 }
 
-console.log("\n--- the mixed tier really is mixed, and says so ---");
-{
-  const t = DEFS.paddock;
-  const rows = BULLPEN_LEVELS.paddock;
+console.log("\n--- the mixed tiers really are mixed, and say so ---");
+for (const key of ["paddock", "pasture"]) {
+  const t = DEFS[key];
+  const rows = BULLPEN_LEVELS[key];
   const keys = {};
   rows.forEach((r) => { const g = typeof r[3] === "string" ? r[3] : "(default)"; keys[g] = (keys[g] || 0) + 1; });
-  check("paddock rows carry a STRING gen key (a number would be ignored by the UI)",
+  check(key + " rows carry a STRING gen key (a number would be ignored by the UI)",
     rows.every((r) => typeof r[3] === "string"), JSON.stringify(keys));
-  check("paddock declares its sizes for the UI label",
+  check(key + " declares its sizes for the UI label",
     Array.isArray(t.sizes) && t.sizes.length === 2, JSON.stringify(t.sizes));
   // sizes must not be blocked: both should appear in the first 100 levels
   const early = {};
   rows.slice(0, 100).forEach((r) => { early[r[3]] = (early[r[3]] || 0) + 1; });
-  check("both sizes appear within the first 100 levels (not blocked by size)",
+  check(key + ": both sizes appear within the first 100 levels (not blocked by size)",
     Object.keys(early).length === 2, JSON.stringify(early));
+}
+{
   // single-size tiers must NOT carry a key, so nothing is ambiguous
   check("single-size tiers omit the gen-key column",
-    ["pasture", "rangeland", "badlands"].every((k) => BULLPEN_LEVELS[k].every((r) => r.length === 3)));
+    ["rangeland", "badlands"].every((k) => BULLPEN_LEVELS[k].every((r) => r.length === 3)));
 }
 
 console.log("\n--- the daily is deterministic, size included ---");

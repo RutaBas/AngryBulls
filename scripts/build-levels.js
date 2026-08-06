@@ -30,7 +30,11 @@
       minTechnique floor and rejects anything softer. Measured cost: about 30%
       of medium boards clear the floor, so the tier costs ~3.3x more to build
       (~1.1s/board vs ~0.34s). That is affordable; it is reported at the end of
-      every run.
+      every run. On 9x9 the same floor is what makes Pasture expensive: 44.2s per
+      accepted board, and only 15-31% of seeds yield one at all (per-shard rates
+      from the 169-board mixed build). The floor is NOT dropped for 9x9 — it is
+      what makes Pasture a different puzzle from Paddock rather than a bigger
+      one — the 9x9 SHARE is what was tuned to pay for it.
 
    ------------------------------------------------------------------- ramping
 
@@ -100,7 +104,18 @@ const TIERS = [
      runs across the whole upper half of the ramp without tripling build time. */
   { key: "paddock",   name: "Paddock",   gen: "easy",    N: 6,  sizes: [6, 7], k: 1, levels: 1000, floor: null,
     gens: [{ key: "easy6", N: 6, w: 7 }, { key: "easy7", N: 7, w: 3 }] },
-  { key: "pasture",   name: "Pasture",   gen: "medium",  N: 8,  sizes: [8],    k: 1, levels: 1000, floor: "line-in-region" },
+  /* Pasture mixes 8x8 and 9x9, but at 5:1, not Paddock's 7:3. The ratio is a
+     measured cost decision, not a taste one: with the `line-in-region` floor a
+     9x9 k=1 board costs 44.2s to find (8 boards in 353s; only 16.7% of seeds
+     yield an accepted board at all — 32/48 seeds exhausted their 400 attempts
+     before the floor even got a look in), against 1.82s for an 8x8. At 1-in-6
+     the tier costs 167*44.2 + 833*1.82 = ~2.5 CPU-hours; at 3-in-10 it would be
+     4.0 hours. 167 nines still puts ~7 of them in every 40-level block, which
+     is plenty to break the equal-effort runs, and each of them is ranked inside
+     its OWN size population so the two sizes interleave the whole way down the
+     ramp instead of splitting the tier into an 8x8 half and a 9x9 half. */
+  { key: "pasture",   name: "Pasture",   gen: "medium",  N: 8,  sizes: [8, 9], k: 1, levels: 1000, floor: "line-in-region", sizeBonus: 0.45,
+    gens: [{ key: "medium8", N: 8, w: 5 }, { key: "medium9", N: 9, w: 1 }] },
   { key: "rangeland", name: "Rangeland", gen: "hard",    N: 9,  sizes: [9],    k: 2, levels: 1000, floor: null },
   { key: "badlands",  name: "Badlands",  gen: "extreme", N: 10, sizes: [10],   k: 2, levels: 1000, floor: null }
 ];
@@ -220,15 +235,22 @@ function buildTier(tier, from, to) {
    then a flat bonus for a change of grid size — a 6x6 next to a 7x7 always
    reads as a different board. Never consults difficulty: difficulty is already
    handled by the block the rows sit in. */
-function rowDistance(a, b) {
+function rowDistance(a, b, sizeBonus) {
   let d = M.charDistance(a.vec, b.vec);
   /* A change of grid size is the single most visible difference between two
      boards, but it must not be worth MORE than everything else put together: at
      a bonus of 0.85 the greedy pass produced a rigid 7,6,7,6,7,6... alternation
      until the sevens ran out, which is just a different kind of pattern. 0.45 is
      about what a same-size pair with completely disjoint pen shapes scores, so
-     the two considerations compete instead of one dominating. */
-  d += a.N === b.N ? 0.35 * M.shapeDistance(a.key, b.key, a.N) : 0.45;
+     the two considerations compete instead of one dominating. It is a per-tier
+     `sizeBonus` because a scarce second size might have wanted a different
+     weight, but the measurement says otherwise: re-emitting Pasture (5:1) at
+     0.45 / 0.30 / 0.22 / 0.15 gave a longest 8x8-only run of 25 / 27 / 54 / 44.
+     Below ~0.3 the few 9x9s stop repelling each other and arrive in clumps
+     ("999...") separated by 40-plus 8x8s, which is worse on both counts, so
+     both mixed tiers keep 0.45. */
+  d += a.N === b.N ? 0.35 * M.shapeDistance(a.key, b.key, a.N)
+                   : (sizeBonus === undefined ? 0.45 : sizeBonus);
   return d;
 }
 
@@ -239,7 +261,7 @@ function rowDistance(a, b) {
    the score also rewards distance from the board BEFORE last. `startFrom` is
    the previous block's final row, which stops the seam between two blocks from
    being the one place where twins sit together. */
-function disperse(block, startFrom) {
+function disperse(block, startFrom, sizeBonus) {
   const pool = block.slice();
   const out = [];
   let last = startFrom || null;
@@ -249,8 +271,8 @@ function disperse(block, startFrom) {
     if (last) {
       let bestScore = -Infinity;
       for (let i = 0; i < pool.length; i++) {
-        let s = rowDistance(pool[i], last);
-        if (last2) s += 0.5 * rowDistance(pool[i], last2);
+        let s = rowDistance(pool[i], last, sizeBonus);
+        if (last2) s += 0.5 * rowDistance(pool[i], last2, sizeBonus);
         if (s > bestScore) { bestScore = s; bi = i; }
       }
     } else {
@@ -342,7 +364,7 @@ function emit() {
     const ordered = [];
     let carry = null;
     for (let s = 0; s < cand.length; s += BLOCK) {
-      const block = disperse(cand.slice(s, s + BLOCK), carry);
+      const block = disperse(cand.slice(s, s + BLOCK), carry, tier.sizeBonus);
       for (const c of block) ordered.push(c);
       carry = block[block.length - 1];
     }
@@ -387,8 +409,9 @@ function emit() {
     "     effort the solver's own weighted deduction cost — the ramp axis.\n" +
     "     par    the target time in ms (js/par.js), forgiving by design.\n" +
     "     genKey OPTIONAL 4th element, a STRING naming this level's generator\n" +
-    "            tier. Only Paddock has it: it mixes 6x6 and 7x7, so each row\n" +
-    "            says 'easy6' or 'easy7' and the device passes that straight to\n" +
+    "            tier. The mixed-size tiers have it: Paddock mixes 6x6 and 7x7\n" +
+    "            ('easy6'/'easy7'), Pasture mixes 8x8 and 9x9\n" +
+    "            ('medium8'/'medium9'), and the device passes it straight to\n" +
     "            generate({tier: genKey, seed}). The size is therefore a\n" +
     "            recorded fact, never re-derived. Tiers with one size omit it.\n\n" +
     "   Difficulty rises in BLOCKS of " + BLOCK + " levels; inside a block the order is\n" +

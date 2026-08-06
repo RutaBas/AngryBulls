@@ -683,8 +683,24 @@ const TIERS = {
     minTech: "adjacency", maxTech: "region-in-line",
     maxSetSize: 2, allowContradiction: false, effortMin: 0,
   },
+  /* PASTURE IS ALSO A MIXED-SIZE TIER — same three-key shape as Paddock.
+     medium8 / medium9 are size-PINNED and are what the campaign rows name;
+     `medium` is size-SAMPLED off the caller's seeded stream and is the daily's
+     key, so the date seed alone fixes both the layout and the grid size.
+     The list is weighted because a 9x9 k=1 board that genuinely REQUIRES
+     `line-in-region` is far more expensive to find than an 8x8 one. */
   medium: {
+    N: 8, k: 1, sizes: [8, 8, 8, 8, 8, 9],
+    minTech: "region-in-line", maxTech: "line-in-region",
+    maxSetSize: 2, allowContradiction: false, effortMin: 0,
+  },
+  medium8: {
     N: 8, k: 1,
+    minTech: "region-in-line", maxTech: "line-in-region",
+    maxSetSize: 2, allowContradiction: false, effortMin: 0,
+  },
+  medium9: {
+    N: 9, k: 1,
     minTech: "region-in-line", maxTech: "line-in-region",
     maxSetSize: 2, allowContradiction: false, effortMin: 0,
   },
@@ -793,7 +809,17 @@ function generate(opts) {
   if (!rule) return { pens: null, reason: "unknown tier " + tierKey, seed: o.seed };
   const k = o.k || rule.k;
   const baseSeed = o.seed === undefined ? 1 : (typeof o.seed === "number" ? o.seed >>> 0 : hashSeed(o.seed));
-  const maxAttempts = o.maxAttempts || 400;
+  /* Why 700 and not 400: on a size-SAMPLED key (`easy`, `medium`) a share of the
+     attempts is spent on the bigger grid, and those attempts almost always fail
+     — a 9x9 `medium` attempt succeeds far less often than an 8x8 one. That
+     dilutes the budget: with 1-in-6 nines, 400 attempts buy only ~333 8x8 tries,
+     and the verifier caught exactly one seed (1276536315) whose winning 8x8
+     attempt sits at index 405. 700 restores at least the 400 same-size attempts
+     a single-size key used to get. Raising the ceiling cannot change any board:
+     attempts are tried in the same order from the same streams, so a call that
+     already succeeded succeeds at the identical attempt, and every stored
+     effective seed still reproduces on attempt 0. */
+  const maxAttempts = o.maxAttempts || 700;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const rng = mulberry32((baseSeed + attempt * 0x9e3779b1) >>> 0);
