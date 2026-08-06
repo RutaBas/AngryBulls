@@ -156,8 +156,20 @@ function orthNeighbors(N, i) {
 
    Returns an Int32Array cell->pen, or null if this seeding cannot be grown
    into a legal partition (the caller just retries with fresh randomness). */
-function growPens(N, k, groups, rng, band) {
+function growPens(N, k, groups, rng, band, style) {
   const cells = N * N;
+  const st = style || DEFAULT_STYLE;
+  /* sizeBias: how strongly growth insists on feeding the smallest pen.
+       0   -> strict smallest-first, every pen ends up near N cells (uniform);
+       1   -> the choice is nearly random, so some pens balloon and others stay
+              at their seed size (a couple of big pens, several small).
+     compactness: which frontier cell the chosen pen takes.
+       +1  -> strongly prefers a cell with many neighbours already in the pen,
+              which fills concavities and yields compact rectangle-ish blobs;
+       -1  -> prefers a cell with exactly one neighbour in the pen, which walks
+              the pen outward in a line and yields long snaking / L / T pens. */
+  const sizeJitter = 0.4 + st.sizeBias * 7;
+  const compact = st.compactness;
   const pens = new Int32Array(cells).fill(-1);
   const isBull = new Int32Array(cells).fill(-1);
   groups.forEach((g, p) => g.forEach((i) => { isBull[i] = p; }));
@@ -217,7 +229,7 @@ function growPens(N, k, groups, rng, band) {
     for (let p = 0; p < N; p++) {
       if (!frontier[p].length) continue;
       if (size[p] >= maxSize) continue;
-      const jitter = rng() * 0.9;
+      const jitter = rng() * sizeJitter;
       if (size[p] + jitter < bestSize) { bestSize = size[p] + jitter; bestPen = p; }
     }
     if (bestPen < 0) {
@@ -228,8 +240,18 @@ function growPens(N, k, groups, rng, band) {
       }
       if (bestPen < 0) return null; // unreachable cells — bad seeding
     }
+    /* Frontier-cell choice is the SHAPE knob. `touch` is how many of the cell's
+       orthogonal neighbours already belong to this pen (1..4). Rewarding a high
+       touch count grows a solid blob; penalising it grows a thread. The rng term
+       keeps every option reachable, so no style can deadlock the growth. */
     const opts = frontier[bestPen];
-    const pick = opts[(rng() * opts.length) | 0];
+    let pick = -1, pickScore = -Infinity;
+    for (const cand of opts) {
+      let touch = 0;
+      for (const nb of orthNeighbors(N, cand)) if (pens[nb] === bestPen) touch++;
+      const s = compact * 2 * touch + rng();
+      if (s > pickScore) { pickScore = s; pick = cand; }
+    }
     pens[pick] = bestPen;
     size[bestPen]++;
     remaining--;
@@ -268,31 +290,111 @@ function pensValid(N, pens, band) {
   return true;
 }
 
-function sizeBand(N, k) {
+// ------------------------------------------------------------ style (variety)
+
+/* A LAYOUT STYLE is three cosmetic knobs. They never touch legality — the
+   solver still decides everything — they only change what a board LOOKS like:
+
+     sizeBias    0..1  uniform pens ................ a few big + several small
+     compactness -1..1 snaking / L / T pens ........ solid rectangle-ish blobs
+     spread      0..1  narrow size band ............ the widest legal band
+
+   Why this exists: a 6x6 one-bull Star Battle has only ~26 distinguishable
+   solver-effort values, so 1000 Paddock levels CANNOT be 1000 difficulties.
+   Structure is the axis that is actually available, and this is the dial.
+
+   CRITICAL — the style is drawn from the generator's own seeded rng, not passed
+   in by the builder. A device rebuilds a level from its stored seed alone, so
+   anything that changes the board has to live inside that one random stream. */
+const DEFAULT_STYLE = { sizeBias: 0.07, compactness: 0, spread: 1 };
+
+function sampleStyle(rng) {
+  /* Skewed low so uniform-ish boards stay the common case, with a long tail of
+     lumpy ones; compactness is centred but reaches both extremes. */
+  const u = rng();
   return {
-    min: Math.max(2 * k, Math.ceil(N * 0.5)),
-    max: Math.max(2 * k + 2, Math.floor(N * 1.7)),
+    sizeBias: u * u,
+    compactness: rng() * 2 - 1,
+    spread: rng(),
   };
 }
 
-/* generatePens(N, k, rng) -> { pens, solution } | null
+function sizeBand(N, k, style) {
+  const st = style || DEFAULT_STYLE;
+  const wideMin = Math.max(2 * k, Math.ceil(N * 0.5));
+  const wideMax = Math.max(2 * k + 2, Math.floor(N * 1.7));
+  // spread=0 hugs the mean pen size (N cells) so pens come out near-uniform;
+  // spread=1 opens up to the widest band the rest of the pipeline tolerates.
+  const tightMin = Math.min(N, Math.max(wideMin, Math.round(N * 0.8)));
+  const tightMax = Math.max(N, Math.min(wideMax, Math.round(N * 1.25)));
+  const s = st.spread;
+  return {
+    min: Math.round(tightMin + (wideMin - tightMin) * s),
+    max: Math.round(tightMax + (wideMax - tightMax) * s),
+  };
+}
+
+/* generatePens(N, k, rng, tries, style) -> { pens, solution, band } | null
    Public because the harness wants to sample layouts on their own. */
-function generatePens(N, k, rng, tries) {
-  const band = sizeBand(N, k);
+function generatePens(N, k, rng, tries, style) {
+  const st = style || DEFAULT_STYLE;
+  const band = sizeBand(N, k, st);
   const attempts = tries || 40;
   for (let t = 0; t < attempts; t++) {
     const bulls = randomPlacement(N, k, rng);
     if (!bulls) continue;
     const groups = groupBulls(N, k, bulls, rng);
     if (!groups) continue;
-    const pens = growPens(N, k, groups, rng, band);
+    const pens = growPens(N, k, groups, rng, band, st);
     if (!pens) continue;
     if (!pensValid(N, pens, band)) continue;
     const solution = new Int8Array(N * N);
     for (const b of bulls) solution[b] = 1;
-    return { pens, solution, band };
+    return { pens, solution, band, style: st };
   }
   return null;
+}
+
+// --------------------------------------------- style-aware boundary moves
+
+/* How many of cell i's orthogonal neighbours belong to pen p. High = the cell
+   sits in a concavity of p; low = it dangles off the end of a limb. */
+function touchCount(N, work, i, p) {
+  let n = 0;
+  for (const nb of orthNeighbors(N, i)) if (work[nb] === p) n++;
+  return n;
+}
+
+/* Choose which adjacent pen receives cell i.
+   Measured problem: refinePens and softenPens together make hundreds of
+   accepted boundary moves on a 36-cell grid, which completely re-randomised the
+   pen shapes that growPens had so carefully styled — corr(compactness,
+   rectDeficit) came out at 0.003, i.e. the shape knob did nothing at all.
+   So the two boundary walks are made style-aware as well: a compact style takes
+   the recipient it already touches most, a snaking style the one it touches
+   least. Legality is unchanged — this only reorders equally legal options. */
+function pickRecipient(N, work, size, i, p, band, rng, compactness) {
+  let best = -1, bestScore = -Infinity;
+  for (const nb of orthNeighbors(N, i)) {
+    const q = work[nb];
+    if (q === p || size[q] >= band.max) continue;
+    const s = compactness * 1.5 * touchCount(N, work, i, q) + rng();
+    if (s > bestScore) { bestScore = s; best = q; }
+  }
+  return best;
+}
+
+/* Does moving cell i from p to q push the layout the way the style wants?
+   Positive = yes. Used ONLY to modulate the probability of accepting a move the
+   solver already rates as neutral; it can never accept something the solver
+   rejected. */
+function styleDelta(N, work, i, p, q, compactness) {
+  return compactness * (touchCount(N, work, i, q) - touchCount(N, work, i, p));
+}
+
+function sidewaysProb(base, delta) {
+  const p = base + 0.22 * delta;
+  return p < 0.02 ? 0.02 : p > 0.9 ? 0.9 : p;
 }
 
 // ------------------------------------------------- step 5a: refine to unique
@@ -318,6 +420,7 @@ function refinePens(N, k, pens, solution, rng, band, opts) {
   const o = opts || {};
   const cap = o.cap || 24;
   const iters = o.iters || 600;
+  const compactness = (o.style || DEFAULT_STYLE).compactness;
   const cells = N * N;
   const work = Int32Array.from(pens);
 
@@ -350,10 +453,7 @@ function refinePens(N, k, pens, solution, rng, band, opts) {
     if (solution[i] === 1) return -1; // never move a bull between pens
     const p = work[i];
     if (size[p] <= band.min) return -1;
-    let q = -1;
-    for (const nb of shuffle(orthNeighbors(N, i), rng)) {
-      if (work[nb] !== p && size[work[nb]] < band.max) { q = work[nb]; break; }
-    }
+    const q = pickRecipient(N, work, size, i, p, band, rng, compactness);
     if (q < 0) return -1;
     if (!connectedWithout(p, i)) return -1;
     return q;
@@ -399,6 +499,7 @@ function refinePens(N, k, pens, solution, rng, band, opts) {
     }
     if (cell < 0) continue;
 
+    const sd = styleDelta(N, work, cell, from, to, compactness);
     work[cell] = to;
     size[from]--; size[to]++;
     /* Adaptive cap: we only need to know whether this move got BELOW the
@@ -407,7 +508,10 @@ function refinePens(N, k, pens, solution, rng, band, opts) {
        generator's throughput at 10x10. */
     const probe = solver.countSolutions({ N, k, pens: work }, Math.min(cap, score + 1));
     const next = probe.count;
-    const accept = next < score || (next === score && rng() < 0.35);
+    /* A strictly better move is always taken — the solver's count is the only
+       thing that matters. The style only decides how willing we are to take a
+       move the count rates as NEUTRAL. */
+    const accept = next < score || (next === score && rng() < sidewaysProb(0.35, sd));
     if (accept) {
       if (next < score) lastGain = it;
       score = next;
@@ -423,8 +527,9 @@ function refinePens(N, k, pens, solution, rng, band, opts) {
 /* One legal boundary move on a layout: hand cell `i` to an adjacent pen. The
    caller supplies `size` and gets back {cell, from, to} or null. Bull cells are
    never moved, the donor must stay 4-connected, and the size band holds. */
-function proposeMove(N, work, size, solution, band, rng, tries) {
+function proposeMove(N, work, size, solution, band, rng, tries, compactness) {
   const cells = N * N;
+  const comp = compactness || 0;
   const connectedWithout = (p, drop) => {
     let start = -1;
     let n = 0;
@@ -450,13 +555,10 @@ function proposeMove(N, work, size, solution, band, rng, tries) {
     if (solution[i] === 1) continue;
     const p = work[i];
     if (size[p] <= band.min) continue;
-    let q = -1;
-    for (const nb of shuffle(orthNeighbors(N, i), rng)) {
-      if (work[nb] !== p && size[work[nb]] < band.max) { q = work[nb]; break; }
-    }
+    const q = pickRecipient(N, work, size, i, p, band, rng, comp);
     if (q < 0) continue;
     if (!connectedWithout(p, i)) continue;
-    return { cell: i, from: p, to: q };
+    return { cell: i, from: p, to: q, style: styleDelta(N, work, i, p, q, comp) };
   }
   return null;
 }
@@ -469,7 +571,8 @@ function proposeMove(N, work, size, solution, band, rng, tries) {
    leave the board uniquely solvable, and prefers the ones the solver grades
    LOWER on the ladder. It stops the moment the target rank is reached. The
    solver is still the only judge; this just steers the search towards it. */
-function softenPens(N, k, pens, solution, rng, band, targetRank, iters) {
+function softenPens(N, k, pens, solution, rng, band, targetRank, iters, style) {
+  const compactness = (style || DEFAULT_STYLE).compactness;
   const cells = N * N;
   const work = Int32Array.from(pens);
   const size = new Int32Array(N);
@@ -497,14 +600,19 @@ function softenPens(N, k, pens, solution, rng, band, targetRank, iters) {
      the shallow ladder can crack. Every step still has to stay unique, and the
      best layout ever seen is what gets returned. */
   for (let it = 0; it < (iters || 250); it++) {
-    const mv = proposeMove(N, work, size, solution, band, rng);
+    const mv = proposeMove(N, work, size, solution, band, rng, 80, compactness);
     if (!mv) continue;
     work[mv.cell] = mv.to;
     size[mv.from]--; size[mv.to]++;
     let keep = false;
     if (solver.countSolutions({ N, k, pens: work }, 2).count === 1) {
       const { g, r } = shallowGrade(work);
-      if (r < curRank || (r === curRank && (r === 99 || g.effort <= curGrade.effort || rng() < 0.4))) {
+      /* The plateau walk (r === 99, nothing to climb) is exactly where the shape
+         character used to get erased, so that is where the style steers. */
+      if (r < curRank || (r === curRank && (
+            (r === 99 ? rng() < sidewaysProb(0.88, mv.style) : false) ||
+            g.effort <= curGrade.effort ||
+            rng() < sidewaysProb(0.4, mv.style)))) {
         curRank = r;
         curGrade = g;
         keep = true;
@@ -539,8 +647,39 @@ const TIERS = {
      single board graded at or below `region-forced`. So the easy tier is
      "counting plus the one-pen-inside-lines cover", which is the true floor of
      the puzzle, and medium is the tier that also needs the converse. */
+  /* PADDOCK IS A MIXED-SIZE TIER, and there are three keys for it.
+
+     A 6x6 one-bull board has only ~26 distinguishable solver-effort values in
+     the whole space, which is why the shipped table had 1000 levels sharing 26
+     difficulties (levels 1-20 all read effort 52). A 7x7 one-bull board sits
+     meaningfully above a 6x6 one and has its own band, so mixing the two
+     roughly doubles Paddock's achievable range and breaks the long runs.
+
+       easy6 / easy7  size-PINNED. The campaign uses these, one named per level
+                      row in js/levels.js, so a level's grid size is an explicit
+                      recorded fact rather than something inferred. Nothing is
+                      drawn from the rng for the size, so there is no way for a
+                      rebuild to silently disagree with the table.
+       easy           size-SAMPLED, from the caller's own seeded stream. This is
+                      the daily's key: it has no level row to carry a size, so
+                      the size falls out of the date seed — same date, same size
+                      for every player, always. The list is weighted because a
+                      7x7 easy board is ~9x more expensive to find than a 6x6
+                      one, so an even draw yielded only 10% sevens (4/40).
+
+     All three share one technique band; the solver gates them identically. */
   easy: {
+    N: 6, k: 1, sizes: [6, 7, 7, 7],
+    minTech: "adjacency", maxTech: "region-in-line",
+    maxSetSize: 2, allowContradiction: false, effortMin: 0,
+  },
+  easy6: {
     N: 6, k: 1,
+    minTech: "adjacency", maxTech: "region-in-line",
+    maxSetSize: 2, allowContradiction: false, effortMin: 0,
+  },
+  easy7: {
+    N: 7, k: 1,
     minTech: "adjacency", maxTech: "region-in-line",
     maxSetSize: 2, allowContradiction: false, effortMin: 0,
   },
@@ -652,7 +791,6 @@ function generate(opts) {
   const tierKey = o.tier || "easy";
   const rule = TIERS[tierKey];
   if (!rule) return { pens: null, reason: "unknown tier " + tierKey, seed: o.seed };
-  const N = o.N || rule.N;
   const k = o.k || rule.k;
   const baseSeed = o.seed === undefined ? 1 : (typeof o.seed === "number" ? o.seed >>> 0 : hashSeed(o.seed));
   const maxAttempts = o.maxAttempts || 400;
@@ -660,13 +798,28 @@ function generate(opts) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const rng = mulberry32((baseSeed + attempt * 0x9e3779b1) >>> 0);
 
+    /* The STYLE is drawn first, from this attempt's own stream. That keeps the
+       whole board a pure function of (tier, seed) — a device replaying the
+       stored effective seed on attempt 0 draws the identical style — while
+       still giving the build a wide spread of pen characters for free. */
+    const style = o.style || sampleStyle(rng);
+
+    /* GRID SIZE, same contract as the style: drawn from this attempt's own
+       stream, so the stored effective seed alone still rebuilds the board on a
+       device and js/game.js needs no change to play a mixed-size tier. An
+       explicit o.N always wins, so the verifier's fixed-size probes are
+       unaffected. The level table also RECORDS the resulting N so the UI can
+       label the tier honestly — but it is not needed to reconstruct the board. */
+    const N = o.N || (rule.sizes ? rule.sizes[(rng() * rule.sizes.length) | 0] : rule.N);
+
     // 1-4: a layout with a known solution built in
-    const layout = generatePens(N, k, rng, 20);
+    const layout = generatePens(N, k, rng, 20, style);
     if (!layout) continue;
     const refined = refinePens(N, k, layout.pens, layout.solution, rng, layout.band, {
       cap: o.refineCap || 60,
       iters: o.refineIters || 1000,
       patience: o.patience,
+      style,
     });
     if (refined.score !== 1) continue;
     layout.pens = refined.pens;
@@ -677,7 +830,7 @@ function generate(opts) {
     // wants the opposite and is left exactly where the uniqueness climb put it.
     if (tierKey !== "extreme") {
       const targetRank = rank(rule.maxTech);
-      const soft = softenPens(N, k, layout.pens, layout.solution, rng, layout.band, targetRank, o.softenIters || 150);
+      const soft = softenPens(N, k, layout.pens, layout.solution, rng, layout.band, targetRank, o.softenIters || 150, style);
       layout.pens = soft.pens;
     }
     if (!pensValid(N, layout.pens, layout.band)) continue;
@@ -713,6 +866,7 @@ function generate(opts) {
       needsDeepSets: !!g.needsDeepSets,
       techniques: g.techniques,
       unique: true,
+      style,
       seed: baseSeed,
       attempts: attempt + 1,
     };
@@ -732,6 +886,8 @@ const API = {
   grade,
   tierAccepts,
   sizeBand,
+  sampleStyle,
+  DEFAULT_STYLE,
   dailySeed,
   TIERS,
 };

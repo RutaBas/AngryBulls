@@ -9,7 +9,7 @@
    Bump CACHE_VERSION whenever any listed file changes; the activate handler
    deletes every cache that is not the current one. */
 
-var CACHE_VERSION = "bullpen-v2";  // v2: hint fix, drag-paint, iOS zoom suppression
+var CACHE_VERSION = "bullpen-v4";  // v4: month beside the daily numeral + weekday on the rule line
 
 var PRECACHE = [
   "./",

@@ -111,9 +111,7 @@ var UI = (function () {
     Game.pause(true);
     stopTimer();
     Game.save();
-    $("pause-where").textContent = Game.mode === "level"
-      ? Meta.ladder[Game.tier] + " · Level " + Game.level
-      : "Daily · " + (Game.dateKey || "");
+    $("pause-where").textContent = whereText();
     $("pause-time").textContent = MetaUI.fmt(Game.elapsedMs());
     $("pause-veil").hidden = false;
   }
@@ -153,18 +151,104 @@ var UI = (function () {
     $("btn-undo").disabled = false;
   }
 
+  /* ---- naming the board you are on
+
+     The daily's tier changes from day to day, so "Daily · 2026-08-06" told the
+     player nothing about whether she was about to play a one-bull or a two-bull
+     board. Every mode now names its tier AND states the rule in words.
+
+     The rule line is derived from Game.k — the k the board was actually built
+     with — never from the tier name. A tier's k could be retuned in the ladder
+     and this line would follow it; a per-name lookup would quietly lie. */
+
+  var COUNT_WORD = ["no", "One", "Two", "Three", "Four", "Five"];
+
+  function ruleText() {
+    var k = Game.k;
+    if (!k) return "";
+    var word = COUNT_WORD[k] || String(k);
+    return word + (k === 1 ? " bull" : " bulls") + " per pen, row & column";
+  }
+
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  var MONTHS_FULL = ["January", "February", "March", "April", "May", "June",
+                     "July", "August", "September", "October", "November", "December"];
+
+  var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday",
+                  "Thursday", "Friday", "Saturday"];
+
+  /* Weekday for a YYYY-MM-DD key. Built from the numeric parts via the local
+     Date constructor — NOT new Date(string), which treats a bare ISO date as
+     UTC and names the wrong day for anyone west of Greenwich. */
+  function weekdayOf(key) {
+    var p = String(key || "").split("-");
+    if (p.length !== 3) return "";
+    var d = new Date(+p[0], (+p[1]) - 1, +p[2]);
+    return isNaN(d.getTime()) ? "" : WEEKDAYS[d.getDay()];
+  }
+
+  /* "2026-08-06" -> "6 Aug". Split, not new Date(), because parsing a bare
+     ISO date string is treated as UTC and can render as the previous day for
+     anyone west of Greenwich. */
+  function shortDate(key) {
+    var p = String(key || "").split("-");
+    if (p.length !== 3) return key || "";
+    return (+p[2]) + " " + (MONTHS[(+p[1]) - 1] || p[1]);
+  }
+
+  function tierName() {
+    return (Game.tier && Meta.ladder[Game.tier]) || "";
+  }
+
+  /* Where you are, one line — used by the pause panel and the header. */
+  function whereText() {
+    if (Game.mode === "level") return tierName() + " · Level " + Game.level;
+    if (Game.mode === "daily") {
+      return "Daily · " + tierName() + " · " + shortDate(Game.dateKey);
+    }
+    return tierName() || "Free play";
+  }
+
   function renderHead() {
     if (Game.mode === "level") {
       $("big-num").textContent = Game.level;
-      $("level-lbl").textContent = Meta.ladder[Game.tier];
+      $("level-lbl").textContent = tierName();
       $("btn-prev").disabled = Game.level <= 1;
       $("btn-next").disabled = Game.level >= Meta.tierDef(Game.tier).levels;
       $("btn-prev").hidden = $("btn-next").hidden = false;
+    } else if (Game.mode === "daily") {
+      /* The date keeps its place as the daily's identity — it lives in the big
+         translucent numeral. The month is set beside it, smaller, so the numeral
+         reads as "August 6" rather than as a level number. */
+      var parts = String(Game.dateKey || "").split("-");
+      var big = $("big-num");
+      big.textContent = "";
+      if (parts.length === 3) {
+        var mo = document.createElement("span");
+        mo.className = "bignum-mo";
+        mo.textContent = MONTHS_FULL[(+parts[1]) - 1] || "";
+        big.appendChild(mo);
+        big.appendChild(document.createTextNode(String(+parts[2])));
+      }
+      $("level-lbl").textContent = "Daily · " + tierName();
+      $("btn-prev").hidden = $("btn-next").hidden = true;
     } else {
       $("big-num").textContent = "";
-      $("level-lbl").textContent = "Daily · " + (Game.dateKey || "");
+      $("level-lbl").textContent = tierName() || "Free play";
       $("btn-prev").hidden = $("btn-next").hidden = true;
     }
+
+    /* The numeral above now reads "August 6", so repeating the date here would
+       just be noise — the sub-line carries the weekday instead, which the
+       numeral cannot show and which reinforces that this is a date. */
+    var rule = ruleText();
+    if (Game.mode === "daily" && rule) {
+      var wd = weekdayOf(Game.dateKey);
+      if (wd) rule = wd + " · " + rule;
+    }
+    $("rule-lbl").textContent = rule;
     tickTimer(true);
   }
 

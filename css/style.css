@@ -144,7 +144,21 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   font-family: var(--serif); font-size: 72px; line-height: 1; opacity: .15;
   position: absolute; inset: 0; pointer-events: none;
 }
-.levelrow { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 22px; }
+/* On dailies the numeral is the day of the month, which on its own reads like
+   a level number. The month is set beside it, smaller and italic, so it scans
+   as "August 6". It inherits .bignum's opacity, so it stays a watermark. */
+.bignum-mo {
+  font-size: 28px; font-style: italic; margin-right: 10px;
+}
+/* The rule sub-line sits INSIDE the levelbar's existing 78px, so naming the
+   bull count costs the board no vertical space at any grid size. */
+.levelrow { position: absolute; inset: 0 0 15px; display: flex; align-items: center; justify-content: center; gap: 22px; }
+.rulelbl {
+  position: absolute; left: 0; right: 0; bottom: 2px;
+  font-family: var(--serif); font-style: italic; font-size: 12.5px; line-height: 1.1;
+  opacity: .62; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .levelrow .lbl { font-family: var(--serif); font-style: italic; font-size: 17px; }
 .levelrow .arw { opacity: .7; font-size: 13px; min-width: 44px; min-height: 44px; }
 .levelrow .arw[disabled] { opacity: .2; }

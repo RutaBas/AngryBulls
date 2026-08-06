@@ -88,20 +88,64 @@ var Meta = (function () {
 
   meta.ladder = LADDER;
   meta.defOf = function (tierKey) { return DEFS[tierKey]; };
+
+  /* A tier is NOT one grid size any more. Paddock mixes 6×6 and 7×7 boards, so
+     every size shown to the player is derived from the tier definition rather
+     than printed from a single `N`. Several shapes of tier data are accepted —
+     `sizes` / `Ns` (an array) or a plain `N` — because the level table that
+     supplies them is owned elsewhere; whichever it ships, the label follows it.
+     Nothing here may ever grow a literal "6×6": that is exactly the bug this
+     replaces. */
+  function sizesOf(def) {
+    if (!def) return [];
+    var raw = def.sizes || def.Ns || def.N;
+    var list = (Object.prototype.toString.call(raw) === "[object Array]") ? raw : [raw];
+    var seen = {}, out = [];
+    for (var i = 0; i < list.length; i++) {
+      var n = +list[i];
+      if (!n || seen[n]) continue;
+      seen[n] = 1; out.push(n);
+    }
+    return out.sort(function (a, b) { return a - b; });
+  }
+
+  /* "6×6", "6×6 & 7×7", "6×6–9×9" — a mixed tier says so instead of lying
+     about half its levels. Three or more sizes collapse to a range so the home
+     row can't outgrow its width at 390px. */
+  function gridLabel(tierKey) {
+    var s = sizesOf(DEFS[tierKey]);
+    var sq = function (n) { return n + "×" + n; };
+    if (!s.length) return "";
+    if (s.length === 1) return sq(s[0]);
+    if (s.length === 2) return sq(s[0]) + " & " + sq(s[1]);
+    return sq(s[0]) + "–" + sq(s[s.length - 1]);
+  }
+
+  meta.sizesOf = sizesOf;
+  meta.gridLabel = gridLabel;
+
   meta.sizeLabel = function (tierKey) {
     var d = DEFS[tierKey];
-    return d ? d.N + "×" + d.N + " · " + d.k + " bull" + (d.k > 1 ? "s" : "") : "";
+    if (!d) return "";
+    return gridLabel(tierKey) + " · " + d.k + " bull" + (d.k > 1 ? "s" : "");
   };
   meta.labelOf = function (tierKey) {
-    var d = DEFS[tierKey];
-    return LADDER[tierKey] + (d ? " · " + d.N + "×" + d.N : "");
+    var g = gridLabel(tierKey);
+    return LADDER[tierKey] + (g ? " · " + g : "");
   };
 
-  /* A campaign level is three baked numbers: seed, effort, par. */
+  /* A campaign level is three baked numbers: seed, effort, par — and, once a
+     tier mixes grid sizes, optionally a FOURTH naming that level's own gen
+     tier. A mixed Paddock cannot be built from one tier-wide gen key, so if the
+     table ships a per-row key it wins; a plain 3-tuple still falls back to the
+     tier's. Only a string is accepted, so a fourth number meaning something
+     else entirely can never be mistaken for a gen key. */
   meta.levelRow = function (tierKey, n) {
     var rows = LEVELS[tierKey];
     var r = rows && rows[n - 1];
-    return r ? { seed: r[0], effort: r[1], par: r[2], genTier: DEFS[tierKey].gen } : null;
+    if (!r) return null;
+    var gen = (typeof r[3] === "string" && r[3]) || DEFS[tierKey].gen;
+    return { seed: r[0], effort: r[1], par: r[2], genTier: gen };
   };
 
   /* The daily is NOT a campaign level — reusing one would spoil it for whoever
@@ -117,7 +161,10 @@ var Meta = (function () {
       day: plan.day,
       tier: plan.tier,
       genTier: def.gen,
-      N: def.N, k: def.k,
+      /* Advisory only — the board's real N comes back from the generator. On a
+         mixed-size tier `def.N` may be absent, so fall back to the tier's
+         smallest declared size rather than reporting undefined. */
+      N: def.N || sizesOf(def)[0], k: def.k,
       seed: BullpenGenerator.dailySeed(plan.dateKey, plan.tier)
     };
   };
