@@ -10,8 +10,8 @@ test/shot-*.png
 scripts/.cache/
 
 # --- design-process visual artifacts (kept on disk, out of the repo) ---
-# design-brief.md IS committed — it's useful repo documentation.
-# Move it here instead if you'd rather keep the written brief local-only.
+# design-brief.md is deliberately NOT committed — it stays on disk only.
+# (Removed from the repo at Ruta's request; still present locally.)
 design-*.html
 accent-compare*.html
 *-review.html
@@ -22,3 +22,4 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+design-brief.md
