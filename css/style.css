@@ -145,10 +145,16 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   position: absolute; inset: 0; pointer-events: none;
 }
 /* On dailies the numeral is the day of the month, which on its own reads like
-   a level number. The month is set beside it, smaller and italic, so it scans
-   as "August 6". It inherits .bignum's opacity, so it stays a watermark. */
+   a level number. The month is stacked above it, smaller and italic, so it
+   scans as "August 11" while staying as narrow as a level's numeral — set
+   beside the day it pushed the watermark out past the title. It inherits
+   .bignum's opacity, so it stays a watermark. */
+.bignum.bignum-date {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 54px;
+}
 .bignum-mo {
-  font-size: 28px; font-style: italic; margin-right: 10px;
+  font-size: 16px; font-style: italic; line-height: 1; letter-spacing: .06em;
 }
 /* The rule sub-line sits INSIDE the levelbar's existing 78px, so naming the
    bull count costs the board no vertical space at any grid size. */

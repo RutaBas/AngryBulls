@@ -213,6 +213,7 @@ var UI = (function () {
 
   function renderHead() {
     if (Game.mode === "level") {
+      $("big-num").classList.remove("bignum-date");
       $("big-num").textContent = Game.level;
       $("level-lbl").textContent = tierName();
       $("btn-prev").disabled = Game.level <= 1;
@@ -220,11 +221,15 @@ var UI = (function () {
       $("btn-prev").hidden = $("btn-next").hidden = false;
     } else if (Game.mode === "daily") {
       /* The date keeps its place as the daily's identity — it lives in the big
-         translucent numeral. The month is set beside it, smaller, so the numeral
-         reads as "August 6" rather than as a level number. */
+         translucent numeral. The month is stacked ABOVE the day rather than set
+         beside it: a level's numeral is narrow and sits cleanly behind the tier
+         name, but "August" set alongside pushed the watermark out past the title
+         on both sides and the whole header read as crowded. Stacked, the daily
+         watermark is as narrow as a level's and still reads as "August 11". */
       var parts = String(Game.dateKey || "").split("-");
       var big = $("big-num");
       big.textContent = "";
+      big.classList.toggle("bignum-date", parts.length === 3);
       if (parts.length === 3) {
         var mo = document.createElement("span");
         mo.className = "bignum-mo";
@@ -235,6 +240,7 @@ var UI = (function () {
       $("level-lbl").textContent = "Daily · " + tierName();
       $("btn-prev").hidden = $("btn-next").hidden = true;
     } else {
+      $("big-num").classList.remove("bignum-date");
       $("big-num").textContent = "";
       $("level-lbl").textContent = tierName() || "Free play";
       $("btn-prev").hidden = $("btn-next").hidden = true;
