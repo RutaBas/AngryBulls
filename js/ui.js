@@ -480,7 +480,46 @@ var UI = (function () {
   /* ----------------------------------------------------------------- hint */
 
   function clearHint() {
-    for (var i = 0; i < cellEls.length; i++) cellEls[i].classList.remove("hinted");
+    for (var i = 0; i < cellEls.length; i++) {
+      cellEls[i].classList.remove("hinted", "hint-focus", "hint-cover", "hint-cue");
+    }
+  }
+
+  /* The cells of one unit the hint sentence named. Rows and columns are
+     positional; a pen is whatever cells carry its id. */
+  function unitCells(ref) {
+    var out = [], i, N = Game.N;
+    if (ref.kind === "row") { for (i = 0; i < N; i++) out.push(ref.n * N + i); return out; }
+    if (ref.kind === "col") { for (i = 0; i < N; i++) out.push(i * N + ref.n); return out; }
+    for (i = 0; i < N * N; i++) if (Game.pens[i] === ref.n) out.push(i);
+    return out;
+  }
+
+  /* Show, on the board, the pens and lines the explanation is talking about.
+     Without this the harder hints ("pen 1 + pen 3 + pen 5 + pen 9 ...") are a
+     wall of numbers the player has to hunt down by hand. Two shades: the units
+     that still owe bulls, and the units those bulls have to come out of. */
+  function paintHintRefs(step) {
+    (step.refs || []).forEach(function (ref) {
+      var cls = ref.role === "cover" ? "hint-cover" : "hint-focus";
+      unitCells(ref).forEach(function (i) { cellEls[i].classList.add(cls); });
+    });
+    (step.cues || []).forEach(function (i) { cellEls[i].classList.add("hint-cue"); });
+  }
+
+  /* The named units, listed under the sentence, in the same two shades — so
+     "pen 3" in the text and the tinted cells on the board are visibly one thing. */
+  function refLegend(step) {
+    var refs = step.refs || [];
+    if (!refs.length) return "";
+    var seen = {}, out = [];
+    refs.forEach(function (ref) {
+      var key = ref.kind + ref.n;
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push('<i class="' + (ref.role === "cover" ? "cover" : "focus") + '">' + ref.label + "</i>");
+    });
+    return '<span class="hintrefs">' + out.join("") + "</span>";
   }
 
   /* The hint is the SOLVER's next deduction, not a peek at the answer: it names
@@ -505,18 +544,22 @@ var UI = (function () {
       return;
     }
 
-    /* Nothing was delivered — never charge the counter for a no-op. */
+    /* Nothing was delivered — never charge the counter for a no-op, and SAY so,
+       so the player isn't left wondering whether she just spent a star on
+       "nothing forced". */
     if (!step.found) {
       bar.innerHTML = "<b>" + (step.reason === "contradiction" ? "Something's off" : "Nothing forced") +
-        "</b>" + step.explain;
+        "</b>" + step.explain +
+        '<span class="free">No hint used — your stars are safe.</span>';
       bar.hidden = false;
       if (step.reason === "contradiction") Sound.wrong();
       return;
     }
 
     Game.hints++;
-    bar.innerHTML = "<b>" + Game.techName(step.technique) + "</b>" + step.explain;
+    bar.innerHTML = "<b>" + Game.techName(step.technique) + "</b>" + step.explain + refLegend(step);
     bar.hidden = false;
+    paintHintRefs(step);
 
     step.cells.forEach(function (c) {
       var want = c.state === "BULL" ? Game.M_BULL : Game.M_DOT;

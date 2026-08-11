@@ -317,7 +317,12 @@ var Game = (function () {
       if (G.marks[n] === M_BULL) grid[n] = BullpenSolver.BULL;
       else if (G.marks[n] === M_DOT) grid[n] = BullpenSolver.EMPTY;
     }
-    var step = BullpenSolver.nextStep(G.puzzle, grid, { maxSetSize: 4 });
+    /* allowContradiction, because Badlands boards are GRADED with it: the
+       generator accepts a board whose last step is a depth-1 trial, so a hint
+       without it dead-ends on "Nothing forced" halfway through a board that is
+       perfectly solvable. nextStep only reaches for it when every cheaper
+       technique has come up empty, and it only ever refutes — never guesses. */
+    var step = BullpenSolver.nextStep(G.puzzle, grid, { maxSetSize: 4, allowContradiction: true });
 
     /* Belt and braces. The solver only ever writes into cells that were UNKNOWN
        when it started, and every marked cell went in as BULL or EMPTY, so a

@@ -187,6 +187,11 @@ function unitListLabel(list) {
   return list.map(unitLabel).join(" + ");
 }
 
+/* A unit, in the form the UI needs to find its cells again. */
+function unitRef(u, role) {
+  return { kind: u.kind, n: u.n, label: unitLabel(u), role: role || "focus" };
+}
+
 // ------------------------------------------------------------------ context
 
 /* All mutable solver state travels in one context object so every write can be
@@ -254,6 +259,12 @@ function mark(ctx, i, val, unit, explain, extra) {
     cells: [{ index: i, r: (i / ctx.g.N) | 0, c: i % ctx.g.N, state: val === BULL ? "BULL" : "EMPTY" }],
     unit: unit ? unitLabel(unit) : (extra && extra.unit) || null,
     explain,
+    /* The units and cells the SENTENCE names, structured so the UI can point at
+       them on the board. `role` distinguishes the units that owe bulls ("focus")
+       from the units those bulls have to come out of ("cover"); a one-unit
+       technique only ever has a focus. */
+    refs: (extra && extra.refs) || (unit ? [unitRef(unit, "focus")] : []),
+    cues: (extra && extra.cues) || [],
   };
   if (extra && extra.setSize) {
     step.setSize = extra.setSize;
@@ -295,7 +306,7 @@ function techAdjacency(ctx) {
     for (const j of neighbors[i]) {
       if (ctx.state[j] === BULL) return fail(ctx, "two bulls touch at " + cellLabel(N, i));
       if (ctx.state[j] === UNKNOWN) {
-        changed = mark(ctx, j, EMPTY, null, "a bull at " + cellLabel(N, i) + " touches " + cellLabel(N, j) + ", and bulls never touch.") || changed;
+        changed = mark(ctx, j, EMPTY, null, "a bull at " + cellLabel(N, i) + " touches " + cellLabel(N, j) + ", and bulls never touch.", { cues: [i] }) || changed;
         if (ctx.contradiction) return changed;
       }
     }
@@ -395,7 +406,11 @@ function applyCover(ctx, sUnits, otherKind, techName, setSize) {
   for (const u of tUnits) {
     for (const i of u.cells) {
       if (st[i] !== UNKNOWN || inS.has(i)) continue;
-      changed = mark(ctx, i, EMPTY, null, why, { setSize, unit: unitListLabel(tUnits) }) || changed;
+      changed = mark(ctx, i, EMPTY, null, why, {
+        setSize,
+        unit: unitListLabel(tUnits),
+        refs: sUnits.map((s) => unitRef(s, "focus")).concat(tUnits.map((t2) => unitRef(t2, "cover"))),
+      }) || changed;
       if (ctx.contradiction) return changed;
     }
   }
@@ -869,8 +884,10 @@ function solve(puzzle, opts) {
    partially- and even wrongly-filled grid: it re-derives everything from the
    given states and reports a contradiction rather than throwing.
 
-   Returns { found, technique, cells, explain } — or found:false with a reason
-   of "solved", "contradiction" or "guess-required". It never invents a move. */
+   Returns { found, technique, cells, refs, cues, explain } — or found:false with
+   a reason of "solved", "contradiction" or "guess-required". `refs` are the units
+   the sentence names (so a caller can point at them) and `cues` the cells it
+   names as evidence. It never invents a move. */
 function nextStep(puzzle, currentGrid, opts) {
   const o = opts || {};
   const g = geometry(puzzle);
@@ -907,7 +924,10 @@ function nextStep(puzzle, currentGrid, opts) {
     }
     if (ctx.steps.length) {
       const s = ctx.steps[0];
-      return { found: true, technique: s.technique, cells: s.cells, unit: s.unit, explain: s.explain };
+      return {
+        found: true, technique: s.technique, cells: s.cells, unit: s.unit,
+        refs: s.refs, cues: s.cues, explain: s.explain,
+      };
     }
   }
   return {

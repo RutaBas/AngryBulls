@@ -115,6 +115,72 @@ assert("H.b a correct position is never reported as a wrong mark", falseWrong ==
 assert("H.c hints alone carry a correct position to a solved board", noProgress === 0, noProgress + " board(s) stalled");
 assert("H.d the hint bridge actually ran", hints > 0);
 
+/* From a BLANK board, too.
+ *
+ * The bug: Badlands boards are graded WITH the depth-1 contradiction technique
+ * (generator TIERS.extreme sets allowContradiction), but Game.hint() asked the
+ * solver without it. Half-played positions above are easy enough to hide that;
+ * from a blank board the hint dead-ended on "Nothing forced — going further
+ * would require a guess" partway through a perfectly solvable board, which is
+ * the one thing a hint must never say about a board it can finish. */
+let blankStalled = [], refsBad = [], noRefs = 0, refsSeen = 0, contradictions = 0;
+
+function unitCellsOf(ref) {
+  const N = Game.N, out = [];
+  for (let i = 0; i < N * N; i++) {
+    if (ref.kind === "row" && ((i / N) | 0) === ref.n) out.push(i);
+    else if (ref.kind === "col" && i % N === ref.n) out.push(i);
+    else if (ref.kind === "pen" && Game.pens[i] === ref.n) out.push(i);
+  }
+  return out;
+}
+
+for (const def of TIERS) {
+  /* Badlands 57 is the board that exposed it: the one Ruta was playing when the
+     hint gave up on her. Not every Badlands board needs the trial pass, so the
+     sample has to include one that does. */
+  const levels = def.key === "badlands" ? [1, 40, 57] : [1, 40];
+  for (const lv of levels) {
+    const seed = LEVELS.BULLPEN_LEVELS[def.key][lv - 1][0];
+    Game.load({ mode: "level", tier: def.key, level: lv, genTier: def.gen, seed, par: 0 });
+    for (let guard = 0; guard < Game.N * Game.N * 3; guard++) {
+      if (Game.isSolved()) break;
+      const step = Game.hint();
+      if (!step.found) { blankStalled.push(def.key + "/" + lv + ": " + step.reason); break; }
+      if (step.technique === "contradiction") contradictions++;
+
+      /* Every unit the sentence names must resolve to real cells on the board —
+         that is what the UI tints. Adjacency argues from a cell, not a unit, so
+         it carries a cue instead. */
+      const refs = step.refs || [];
+      /* 'contradiction' is the one technique with nothing to point at: its
+         argument is about the hinted cell itself, which is already highlighted
+         as the move. */
+      if (!refs.length && !(step.cues || []).length && step.technique !== "contradiction") noRefs++;
+      refsSeen += refs.length;
+      for (const ref of refs) {
+        const cells = unitCellsOf(ref);
+        const ok = cells.length > 0 &&
+          (ref.kind === "pen" || cells.length === Game.N) &&
+          /^(row|column|pen) \d+$/.test(ref.label || "") &&
+          ref.label.indexOf(String(ref.n + 1)) > 0 &&
+          (ref.role === "focus" || ref.role === "cover");
+        if (!ok) refsBad.push(def.key + "/" + lv + " " + JSON.stringify(ref) + " -> " + cells.length + " cell(s)");
+      }
+      for (const c of step.cells) {
+        Game.setMark(c.index, c.state === "BULL" ? Game.M_BULL : Game.M_DOT);
+      }
+    }
+  }
+}
+
+assert("H.m hints alone solve every tier from a BLANK board", blankStalled.length === 0, blankStalled.join("; "));
+assert("H.n the contradiction technique is reachable through the hint", contradictions > 0,
+  "never used — Badlands boards need it");
+assert("H.o every unit a hint names resolves to real cells", refsBad.length === 0, refsBad.slice(0, 3).join("; "));
+assert("H.p every hint points at something (a unit or a cue)", noRefs === 0, noRefs + " hint(s) pointed nowhere");
+assert("H.q units were actually reported", refsSeen > 0);
+
 /* A poisoned position must be called out, not deduced around. */
 const RANGE = TIERS.find((t) => t.key === "rangeland");
 const rangeSeed = LEVELS.BULLPEN_LEVELS.rangeland[0][0];
