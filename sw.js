@@ -9,7 +9,7 @@
    Bump CACHE_VERSION whenever any listed file changes; the activate handler
    deletes every cache that is not the current one. */
 
-var CACHE_VERSION = "bullpen-v4";  // v4: month beside the daily numeral + weekday on the rule line
+var CACHE_VERSION = "bullpen-v5";  // v5: hints point at the pens they name; month stacked above the daily numeral
 
 var PRECACHE = [
   "./",
