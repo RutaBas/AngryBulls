@@ -1,0 +1,37 @@
+#!/bin/sh
+# BULLPEN — keep the service worker's cache version honest.
+#
+# sw.js is cache-first, so a commit that changes a shipped file without changing
+# CACHE_VERSION cannot reach an installed app: the phone keeps serving the old
+# build off disk. This hook stamps the version from the contents of the files
+# being committed, then re-stages sw.js so the stamp lands in the same commit.
+#
+# Enabled by:  git config core.hooksPath .githooks
+# Skipped by:  git commit --no-verify   (and by any commit that ships no
+#              precached file, since the stamp cannot have changed)
+
+set -e
+
+# Nothing staged under the shipped paths means nothing to restamp.
+if ! git diff --cached --name-only | grep -qE '^(index\.html|manifest\.webmanifest|sw\.js|css/|js/|icons/)'; then
+  exit 0
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node not found, cannot stamp sw.js — commit blocked." >&2
+  echo "  Install node, or bypass once with: git commit --no-verify" >&2
+  exit 1
+fi
+
+before=$(git rev-parse ":sw.js" 2>/dev/null || echo none)
+
+# --staged: hash the INDEX, so the stamp describes what is actually committed
+# rather than whatever happens to be sitting in the working tree.
+node scripts/stamp-cache.js --staged
+
+git add sw.js
+
+after=$(git rev-parse ":sw.js" 2>/dev/null || echo none)
+if [ "$before" != "$after" ]; then
+  echo "pre-commit: restamped sw.js -> $(sed -n 's/.*CACHE_VERSION = "\([^"]*\)".*/\1/p' sw.js)"
+fi

@@ -6,10 +6,15 @@
    on the device, so once the shell is cached the game is fully playable with
    no network at all — campaign, daily and all.
 
-   Bump CACHE_VERSION whenever any listed file changes; the activate handler
+   CACHE_VERSION must change whenever any listed file changes, or an installed
+   app keeps serving the old build off disk forever. That used to be a hand-bumped
+   counter and it was forgotten exactly once, which is once too many — so the
+   value is now STAMPED from the contents of the files below by
+   scripts/stamp-cache.js, run automatically by the pre-commit hook in
+   .githooks/. Do not edit it by hand; run the script. The activate handler
    deletes every cache that is not the current one. */
 
-var CACHE_VERSION = "bullpen-v5";  // v5: hints point at the pens they name; month stacked above the daily numeral
+var CACHE_VERSION = "bullpen-d8b0d502c708";
 
 var PRECACHE = [
   "./",

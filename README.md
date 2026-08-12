@@ -91,6 +91,7 @@ js/ui.js                 the board controller
 sw.js                    service worker, cache-first app shell
 scripts/build-levels.js  builds js/levels.js
 scripts/make-icons.js    builds icons/ (real PNGs, no dependencies)
+scripts/stamp-cache.js   stamps sw.js's CACHE_VERSION from the shipped bytes
 test/verify.js           the logic-core gate
 ```
 
@@ -101,8 +102,26 @@ testable; `js/meta-ui.js` never computes progression itself — every number com
 ## Running the tests
 
 ```
-node test/verify.js        # the logic-core gate: 30 checks, ~3.5 min, exit 0 on pass
+node test/verify.js             # the logic-core gate: 30 checks, ~3.5 min, exit 0 on pass
+node test/hint-regression.js    # the hint bridge: no stale, no dead-end hints
+node test/levels-contract.test.js  # the shipped level table matches its declared tiers
+node test/resume.test.js        # a save round-trips
+node test/cache-stamp.test.js   # sw.js's cache version matches the bytes it ships
 ```
+
+## After a fresh clone
+
+The service worker is cache-first, so a shipped change that leaves `CACHE_VERSION` alone
+cannot reach an installed app — the phone keeps serving the old build off disk. The
+version is therefore stamped from the contents of the precached files, automatically, by
+a pre-commit hook. Hooks are not cloned, so enable it once:
+
+```
+git config core.hooksPath .githooks
+```
+
+Without it nothing silently rots — `test/cache-stamp.test.js` fails on a stale stamp, and
+`node scripts/stamp-cache.js` fixes one.
 
 ## Rebuilding the level table
 
