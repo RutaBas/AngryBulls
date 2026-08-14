@@ -487,8 +487,10 @@ var UI = (function () {
 
   function clearHint() {
     for (var i = 0; i < cellEls.length; i++) {
-      cellEls[i].classList.remove("hinted", "hint-focus", "hint-cover", "hint-cue");
+      cellEls[i].classList.remove("hinted", "hint-focus", "hint-cover", "hint-cue", "hint-off");
     }
+    var marks = $("hintmarks");
+    if (marks) marks.innerHTML = "";
   }
 
   /* The cells of one unit the hint sentence named. Rows and columns are
@@ -501,16 +503,63 @@ var UI = (function () {
     return out;
   }
 
+  /* A triangle in the margin, pointing into the board at one line. The board
+     itself clips to its rounded frame, so these live in a sibling layer over
+     .pad's padding. Positioned by fraction rather than by measuring a cell, so
+     they stay put through a rotation with no recalculation. */
+  function markLine(kind, n, role) {
+    var marks = $("hintmarks");
+    if (!marks) return;
+    var f = (n + 0.5) / Game.N;
+    var b = BOARD_BORDER_PX;
+    var pos = "calc(" + b + "px + (100% - " + (2 * b) + "px) * " + f + ")";
+    [0, 1].forEach(function (side) {
+      var t = document.createElement("i");
+      t.className = "hm hm-" + kind + (role === "cover" ? " cover" : "");
+      if (kind === "row") {
+        t.style.top = pos;
+        t.style[side ? "right" : "left"] = "-13px";
+        t.textContent = side ? "◀" : "▶";
+      } else {
+        t.style.left = pos;
+        t.style[side ? "bottom" : "top"] = "-13px";
+        t.textContent = side ? "▲" : "▼";
+      }
+      marks.appendChild(t);
+    });
+  }
+
   /* Show, on the board, the pens and lines the explanation is talking about.
      Without this the harder hints ("pen 1 + pen 3 + pen 5 + pen 9 ...") are a
-     wall of numbers the player has to hunt down by hand. Two shades: the units
-     that still owe bulls, and the units those bulls have to come out of. */
+     wall of numbers the player has to hunt down by hand.
+
+     The named units keep their TRUE pen colours and everything else is dimmed,
+     rather than the named units being tinted: on a board where every cell is
+     already coloured, "brighter than the rest" is the only emphasis that reads
+     at a glance. Three steps — the units that still owe bulls, the units those
+     bulls have to come out of, and the rest of the board — plus a triangle in
+     the margin against every row and column named, so a line does not have to
+     be counted out by hand. */
   function paintHintRefs(step) {
+    var role = {}, i;
+
     (step.refs || []).forEach(function (ref) {
-      var cls = ref.role === "cover" ? "hint-cover" : "hint-focus";
-      unitCells(ref).forEach(function (i) { cellEls[i].classList.add(cls); });
+      var r = ref.role === "cover" ? "cover" : "focus";
+      unitCells(ref).forEach(function (c) {
+        if (role[c] !== "focus") role[c] = r;   // focus outranks cover on overlap
+      });
+      if (ref.kind === "row" || ref.kind === "col") markLine(ref.kind, ref.n, r);
     });
-    (step.cues || []).forEach(function (i) { cellEls[i].classList.add("hint-cue"); });
+
+    /* The cells the hint is ABOUT are always lit, even when it named no unit at
+       all — the trial sweep and the adjacency argument both work that way. */
+    (step.cues || []).forEach(function (c) { role[c] = "focus"; cellEls[c].classList.add("hint-cue"); });
+    (step.cells || []).forEach(function (c) { role[c.index] = "focus"; });
+
+    for (i = 0; i < cellEls.length; i++) {
+      if (role[i] === "focus") continue;                       // true colour
+      cellEls[i].classList.add(role[i] === "cover" ? "hint-cover" : "hint-off");
+    }
   }
 
   /* The named units, listed under the sentence, in the same two shades — so
@@ -550,6 +599,22 @@ var UI = (function () {
       return;
     }
 
+    /* Nothing DEDUCED, but a trial pass would find something. Offer it rather
+       than spending it: a trial is "test this cell and watch the board break
+       four moves later", which is a machine's move, and being handed ten of
+       them one at a time — each costing a star, none following from the last —
+       is what made them read as noise. So the offer is free, it is the player's
+       call, and taking it clears the whole sweep for a single hint. */
+    if (step.reason === "trial-available") {
+      bar.innerHTML = "<b>Nothing simple is left</b>" + step.explain +
+        '<span class="free">No hint used — your stars are safe.</span>' +
+        '<button class="hintmore" id="btn-trial" type="button">' +
+        "Show me what breaks · costs 1 hint</button>";
+      bar.hidden = false;
+      $("btn-trial").addEventListener("click", doTrialHint);
+      return;
+    }
+
     /* Nothing was delivered — never charge the counter for a no-op, and SAY so,
        so the player isn't left wondering whether she just spent a star on
        "nothing forced". */
@@ -562,18 +627,46 @@ var UI = (function () {
       return;
     }
 
+    deliver(step);
+  }
+
+  /* The accepted offer: one hint, every cell the trial sweep refutes. */
+  function doTrialHint() {
+    if (Game.paused || Game.won) return;
+    Sound.unlock();
+    clearHint();
+    var step = Game.trialHint();
+    var bar = $("hintbar");
+    if (!step.found) {
+      bar.innerHTML = "<b>Nothing forced</b>" + step.explain +
+        '<span class="free">No hint used — your stars are safe.</span>';
+      bar.hidden = false;
+      return;
+    }
+    deliver(step);
+  }
+
+  /* Charge one hint, say what it was, make the move(s) and light the board. */
+  function deliver(step) {
+    var bar = $("hintbar");
     Game.hints++;
     bar.innerHTML = "<b>" + Game.techName(step.technique) + "</b>" + step.explain + refLegend(step);
     bar.hidden = false;
     paintHintRefs(step);
 
+    /* One bell for the whole batch. The trial sweep can settle a dozen cells at
+       once and a bell each would machine-gun. */
+    var quiet = step.cells.length > 2, bell = null;
     step.cells.forEach(function (c) {
       var want = c.state === "BULL" ? Game.M_BULL : Game.M_DOT;
       var rep = Game.setMark(c.index, want);
       paintCell(c.index, want === Game.M_BULL);
       cellEls[c.index].classList.add("hinted");
-      if (rep && rep.to === Game.M_BULL) Sound.bull(); else Sound.dot();
+      if (rep && rep.to === Game.M_BULL) bell = "bull";
+      else if (!bell) bell = "dot";
+      if (!quiet) { if (bell === "bull") Sound.bull(); else Sound.dot(); bell = null; }
     });
+    if (quiet && bell) { if (bell === "bull") Sound.bull(); else Sound.dot(); }
     paintPens();
     renderPips();
     Game.save();

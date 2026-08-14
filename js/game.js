@@ -317,12 +317,13 @@ var Game = (function () {
       if (G.marks[n] === M_BULL) grid[n] = BullpenSolver.BULL;
       else if (G.marks[n] === M_DOT) grid[n] = BullpenSolver.EMPTY;
     }
-    /* allowContradiction, because Badlands boards are GRADED with it: the
-       generator accepts a board whose last step is a depth-1 trial, so a hint
-       without it dead-ends on "Nothing forced" halfway through a board that is
-       perfectly solvable. nextStep only reaches for it when every cheaper
-       technique has come up empty, and it only ever refutes — never guesses. */
-    var step = BullpenSolver.nextStep(G.puzzle, grid, { maxSetSize: 4, allowContradiction: true });
+    /* Sound techniques ONLY. Badlands boards are graded with the depth-1 trial
+       technique too, so this can legitimately come up empty on a board that is
+       still solvable — but a trial is a machine's move, not a deduction anyone
+       enjoys being handed, so it is never delivered unasked. When nothing
+       cheaper is left, hint() OFFERS it (reason:"trial-available", charging
+       nothing) and the player decides. trialHint() below is the acceptance. */
+    var step = BullpenSolver.nextStep(G.puzzle, grid, { maxSetSize: 4 });
 
     /* Belt and braces. The solver only ever writes into cells that were UNKNOWN
        when it started, and every marked cell went in as BULL or EMPTY, so a
@@ -336,10 +337,56 @@ var Game = (function () {
       }
       step.cells = fresh;
       step.delivered = true;
-    } else {
-      step.delivered = false;
+      return step;
+    }
+
+    step.delivered = false;
+
+    /* Nothing sound is left. If a trial pass would find something, say so and
+       let the player choose — the free message must not claim a guess is
+       needed when it demonstrably is not. */
+    if (step.reason === "guess-required") {
+      var sweep = BullpenSolver.trialSweep(G.puzzle, grid, { maxSetSize: 4 });
+      if (sweep.found) {
+        var fresh2 = sweep.cells.filter(function (c) { return G.marks[c.index] === M_EMPTY; });
+        if (fresh2.length) {
+          return {
+            found: false, delivered: false, reason: "trial-available", technique: "contradiction",
+            cells: [], trialCount: fresh2.length,
+            explain: "No pen, row or column settles anything on its own from here. What is left is trial and error: test a cell, and if the board breaks a few moves later, that cell was never an option."
+          };
+        }
+      }
     }
     return step;
+  }
+
+  /* The opt-in half of the two-stage hint. Runs the trial sweep the offer above
+     advertised and hands back EVERY cell it refutes at once, because one cell at
+     a time was ten scattered hints that read as noise. Charged as one hint by
+     the caller — the offer itself is free. */
+  function trialHint() {
+    var wrong = firstWrongMark();
+    if (wrong) return hint();          // a bad mark still comes first
+
+    var grid = new Int8Array(G.marks.length), n;
+    for (n = 0; n < G.marks.length; n++) {
+      if (G.marks[n] === M_BULL) grid[n] = BullpenSolver.BULL;
+      else if (G.marks[n] === M_DOT) grid[n] = BullpenSolver.EMPTY;
+    }
+    var sweep = BullpenSolver.trialSweep(G.puzzle, grid, { maxSetSize: 4 });
+    var fresh = (sweep.cells || []).filter(function (c) { return G.marks[c.index] === M_EMPTY; });
+    if (!fresh.length) {
+      return { found: false, delivered: false, reason: sweep.reason || "guess-required",
+        technique: null, cells: [], explain: sweep.explain };
+    }
+    return {
+      found: true, delivered: true, technique: "contradiction", cells: fresh,
+      refs: [], cues: [], reasons: sweep.reasons,
+      explain: fresh.length === 1
+        ? "This cell cannot hold a bull: follow the rules from there and the board breaks a few moves later."
+        : "None of these " + fresh.length + " cells can hold a bull: drop one in any of them and the board breaks a few moves later. Dotted them all."
+    };
   }
 
   /* Plain-language names for the ladder, so the hint explains the TECHNIQUE and
@@ -493,6 +540,7 @@ var Game = (function () {
   G.bullsPlaced = bullsPlaced;
   G.completedPens = completedPens;
   G.hint = hint;
+  G.trialHint = trialHint;
   G.techName = function (t) { return TECH_NAMES[t] || t; };
   G.elapsedMs = elapsedMs;
   G.pause = pause;

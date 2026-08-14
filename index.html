@@ -98,7 +98,12 @@
       <div class="rulelbl" id="rule-lbl"></div>
     </div>
 
-    <div class="board" id="board"></div>
+    <!-- The board and its hint gutter. The markers live OUTSIDE .board because
+         .board clips to its own rounded frame; they sit in .pad's 16px padding. -->
+    <div class="boardwrap" id="boardwrap">
+      <div class="board" id="board"></div>
+      <div class="hintmarks" id="hintmarks" aria-hidden="true"></div>
+    </div>
 
     <div class="remain">
       <div class="lbl">Remaining Bulls</div>

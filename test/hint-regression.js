@@ -124,6 +124,7 @@ assert("H.d the hint bridge actually ran", hints > 0);
  * would require a guess" partway through a perfectly solvable board, which is
  * the one thing a hint must never say about a board it can finish. */
 let blankStalled = [], refsBad = [], noRefs = 0, refsSeen = 0, contradictions = 0;
+let offers = 0, offerBad = [], batched = [];
 
 function unitCellsOf(ref) {
   const N = Game.N, out = [];
@@ -145,7 +146,19 @@ for (const def of TIERS) {
     Game.load({ mode: "level", tier: def.key, level: lv, genTier: def.gen, seed, par: 0 });
     for (let guard = 0; guard < Game.N * Game.N * 3; guard++) {
       if (Game.isSolved()) break;
-      const step = Game.hint();
+      let step = Game.hint();
+
+      /* The trial technique is now OFFERED, not spent: hint() reports
+         "trial-available" for free and the player decides. A test that solves by
+         hint alone has to accept the offer, exactly as a player would. */
+      if (!step.found && step.reason === "trial-available") {
+        if (typeof step.trialCount !== "number" || step.trialCount < 1) {
+          offerBad.push(def.key + "/" + lv + ": offered " + step.trialCount);
+        }
+        offers++;
+        step = Game.trialHint();
+        if (step.found) batched.push(step.cells.length);
+      }
       if (!step.found) { blankStalled.push(def.key + "/" + lv + ": " + step.reason); break; }
       if (step.technique === "contradiction") contradictions++;
 
@@ -175,8 +188,16 @@ for (const def of TIERS) {
 }
 
 assert("H.m hints alone solve every tier from a BLANK board", blankStalled.length === 0, blankStalled.join("; "));
-assert("H.n the contradiction technique is reachable through the hint", contradictions > 0,
+assert("H.n the trial technique is reachable, but only by accepting the offer", contradictions > 0,
   "never used — Badlands boards need it");
+assert("H.n2 the offer itself reports how many cells it would settle", offerBad.length === 0,
+  offerBad.slice(0, 3).join("; "));
+assert("H.n3 the offer was actually exercised", offers > 0);
+/* The whole point of batching: a sweep that handed back one cell at a time was
+   ten scattered hints. At least one sweep must clear more than one cell, or the
+   batching is doing nothing. */
+assert("H.n4 an accepted sweep settles several cells for the one hint",
+  batched.some((n) => n > 1), "largest sweep was " + Math.max.apply(null, batched.concat([0])));
 assert("H.o every unit a hint names resolves to real cells", refsBad.length === 0, refsBad.slice(0, 3).join("; "));
 assert("H.p every hint points at something (a unit or a cue)", noRefs === 0, noRefs + " hint(s) pointed nowhere");
 assert("H.q units were actually reported", refsSeen > 0);

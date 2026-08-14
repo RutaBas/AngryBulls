@@ -207,14 +207,41 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   70% { transform: translateX(-2px); }
 }
 .cell.hinted { box-shadow: inset 0 0 0 3px var(--rule); animation: pulse 1.1s ease 2; }
-/* The units the hint sentence names. A wash, not an outline: the pen colours
-   underneath still have to read, and the .hinted cells must stay the loudest
-   thing on the board. */
-.cell.hint-cover { background-image: linear-gradient(rgba(122,26,42,.13), rgba(122,26,42,.13)); }
-.cell.hint-focus { background-image: linear-gradient(rgba(122,26,42,.26), rgba(122,26,42,.26)); }
+/* The units the hint sentence names read as BRIGHTER THAN THE REST — they keep
+   their true pen colours and everything else is veiled. On a board where every
+   cell is already coloured, tinting the named cells fought those colours;
+   dimming their surroundings does not, and it is what "that line, there" looks
+   like. Three steps: the units that still owe bulls (untouched), the units
+   those bulls must come out of (half-veiled), the rest (veiled).
+
+   The veil is a pseudo-element over the pen fill and UNDER the cell's contents,
+   so the player's own dots and bulls stay fully legible everywhere — dimming a
+   cell must never hide her own work. */
+.cell.hint-off::before, .cell.hint-cover::before {
+  content: ""; position: absolute; inset: 0; background: var(--bg); pointer-events: none;
+}
+.cell.hint-off::before { opacity: .58; }
+.cell.hint-cover::before { opacity: .2; }
+.cell > * { position: relative; z-index: 1; }
 .cell.hint-cue { box-shadow: inset 0 0 0 2px var(--rule); }
-.is-dark .cell.hint-cover { background-image: linear-gradient(rgba(255,255,255,.11), rgba(255,255,255,.11)); }
-.is-dark .cell.hint-focus { background-image: linear-gradient(rgba(255,255,255,.22), rgba(255,255,255,.22)); }
+
+/* The margin triangles: which row, which column, without counting cells out by
+   hand. They sit in .pad's padding, outside .board's rounded clip. */
+.boardwrap { position: relative; }
+.hintmarks { position: absolute; inset: 0; pointer-events: none; }
+.hintmarks .hm {
+  position: absolute; font-size: 11px; line-height: 1; font-style: normal;
+  color: var(--rule); animation: hmIn .22s ease both;
+}
+/* A row marker is placed by `top` and a column marker by `left`, so each centres
+   on that one axis only — centring both would drag the marker off the -13px
+   gutter anchor it was placed against. */
+.hintmarks .hm-row { transform: translateY(-50%); }
+.hintmarks .hm-col { transform: translateX(-50%); }
+/* A cover line is secondary, but its marker is still the only thing saying
+   WHICH line — too faint to find would defeat the point. */
+.hintmarks .hm.cover { opacity: .7; }
+@keyframes hmIn { from { opacity: 0; } }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 /* The solved wave. */
 .cell.wave .bullsvg { animation: wave .5s ease both; }
@@ -244,6 +271,12 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 .is-dark .hintbar .hintrefs i.focus { background: rgba(255,255,255,.22); }
 .is-dark .hintbar .hintrefs i.cover { background: rgba(255,255,255,.11); }
 .hintbar .free { display: block; margin-top: 6px; font-size: 11.5px; opacity: .7; }
+/* The opt-in for the trial sweep. A real button, because it spends a hint. */
+.hintbar .hintmore {
+  display: block; width: 100%; margin-top: 10px; min-height: 44px;
+  background: var(--chip); border-radius: 10px;
+  font-family: var(--serif); font-size: 13.5px;
+}
 
 .tools { display: flex; gap: 12px; justify-content: center; margin-top: auto; padding-top: 16px; }
 .tool {

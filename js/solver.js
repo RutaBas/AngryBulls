@@ -982,9 +982,70 @@ function checkAgainstTruth(puzzle, solution, opts) {
   };
 }
 
+/* trialSweep(puzzle, currentGrid) — EVERY cell a single depth-1 trial pass can
+   prove empty from this position, in one go.
+
+   Why this exists as its own entry point. The trial technique eliminates one
+   cell at a time, and the cells it eliminates are unrelated to each other, so
+   delivering them through nextStep() meant a run of ten hints that jumped all
+   over the board, each costing a star and none of them following from the last.
+   Ruta's verdict: they "don't make such sense to me". Handed over as one batch
+   they read as what they actually are — a single mechanical sweep, "none of
+   these can hold a bull" — for one hint instead of ten.
+
+   The sound ladder is closed first, because a trial is only ever interesting
+   from a position where nothing cheaper is left; those deductions are NOT part
+   of the sweep and are not returned. Every cell returned is proven from the
+   live state by refutation alone, so this is still not a guess.
+
+   -> { found, cells:[{index,r,c,state:"EMPTY"}], reasons:[string], explain } */
+function trialSweep(puzzle, currentGrid, opts) {
+  const o = opts || {};
+  const g = geometry(puzzle);
+  const board = initialState(puzzle, currentGrid);
+  const ctx = makeCtx(g, board, {
+    collectSteps: true,
+    maxSetSize: o.maxSetSize,
+    allowContradiction: true,
+  });
+
+  propagate(ctx, SOUND_TECHNIQUES);
+  if (ctx.contradiction) {
+    return {
+      found: false,
+      reason: "contradiction",
+      cells: [],
+      reasons: [],
+      explain: "This board already breaks the rules: " + (ctx.contradictionReason || "no legal continuation") + ".",
+    };
+  }
+
+  const soundSteps = ctx.steps.length;
+  techContradiction(ctx);
+  const swept = ctx.steps.slice(soundSteps).filter((s) => s.technique === "contradiction");
+
+  const cells = [];
+  const reasons = [];
+  for (const s of swept) {
+    for (const c of s.cells) cells.push(c);
+    reasons.push(s.explain);
+  }
+
+  return {
+    found: cells.length > 0,
+    reason: cells.length ? "trial" : "guess-required",
+    cells,
+    reasons,
+    explain: cells.length
+      ? "None of these " + cells.length + " cell(s) can hold a bull: follow the rules from any one of them and the board breaks a few moves later. Every other cell is still open."
+      : "Nothing is forced from here — going further would require a guess.",
+  };
+}
+
 const API = {
   solve,
   nextStep,
+  trialSweep,
   countSolutions,
   checkAgainstTruth,
   isSolution,
