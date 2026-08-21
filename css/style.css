@@ -260,6 +260,23 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   padding: 10px 12px; font-size: 12.5px; box-shadow: 0 6px 0 rgba(0,0,0,.06);
 }
 .hintbar b { font-family: var(--serif); font-size: 14.5px; font-weight: 500; display: block; margin-bottom: 2px; }
+/* The way out of a hint. A hint dims the whole board now, so leaving that state
+   must not require making a move on the board you may not want to make.
+
+   FLOATED, not absolute: a 44px target parked over the corner would sit on top
+   of the first line or two of the sentence. Floated, the text wraps around it
+   for exactly as many lines as it covers and no more, and the negative margins
+   pull it into the card's own padding so it costs the layout nothing. */
+.hintbar .hintx {
+  float: right; width: 44px; height: 44px; margin-left: 8px;
+  display: flex; align-items: flex-start; justify-content: flex-end;
+  padding: 7px 5px 0 0; font-size: 15px; opacity: .55;
+  /* Nudged by `position: relative`, NOT by negative margins: a negative margin
+     shrinks the space the float actually reserves, and the sentence then runs
+     under the glyph. This shifts what you see without touching what is kept
+     clear, so the text can never collide with it. */
+  position: relative; top: -6px; right: -6px;
+}
 /* Chips that echo the board wash, so the named units are findable at a glance. */
 .hintbar .hintrefs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .hintbar .hintrefs i {

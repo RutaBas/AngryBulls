@@ -110,7 +110,12 @@
       <div class="pips" id="remain-pips"></div>
     </div>
 
-    <div class="hintbar" id="hintbar" hidden></div>
+    <!-- The close button lives in the markup, not in the text the hint rewrites,
+         so it binds once and can never go missing on a re-render. -->
+    <div class="hintbar" id="hintbar" hidden>
+      <button class="hintx" id="btn-hint-close" type="button" aria-label="Dismiss hint">✕</button>
+      <div id="hinttext"></div>
+    </div>
 
     <div class="tools">
       <button class="tool" id="btn-clear" type="button"><b>🗑</b><span>Clear</span></button>

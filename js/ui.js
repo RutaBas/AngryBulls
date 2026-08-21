@@ -485,6 +485,15 @@ var UI = (function () {
 
   /* ----------------------------------------------------------------- hint */
 
+  /* THE way out. Every hint now dims the rest of the board, which is a much
+     louder state than the old wash was — so it needs an explicit exit, or the
+     only way back to a normal board is to make a move you may not want to make.
+     The button, Escape, and any tap on the board all land here. */
+  function dismissHint() {
+    clearHint();
+    $("hintbar").hidden = true;
+  }
+
   function clearHint() {
     for (var i = 0; i < cellEls.length; i++) {
       cellEls[i].classList.remove("hinted", "hint-focus", "hint-cover", "hint-cue", "hint-off");
@@ -585,13 +594,13 @@ var UI = (function () {
     Sound.unlock();
     clearHint();
     var step = Game.hint();
-    var bar = $("hintbar");
+    var bar = $("hintbar"), text = $("hinttext");
 
     /* A wrong mark on the board beats any deduction: pointing at it is the
        only useful thing to say, and it still counts as a hint delivered. */
     if (step.reason === "wrong-mark") {
       Game.hints++;
-      bar.innerHTML = "<b>One of your marks is wrong</b>" + step.explain;
+      text.innerHTML = "<b>One of your marks is wrong</b>" + step.explain;
       bar.hidden = false;
       step.cells.forEach(function (c) { cellEls[c.index].classList.add("hinted"); });
       Sound.wrong();
@@ -606,7 +615,7 @@ var UI = (function () {
        is what made them read as noise. So the offer is free, it is the player's
        call, and taking it clears the whole sweep for a single hint. */
     if (step.reason === "trial-available") {
-      bar.innerHTML = "<b>Nothing simple is left</b>" + step.explain +
+      text.innerHTML = "<b>Nothing simple is left</b>" + step.explain +
         '<span class="free">No hint used — your stars are safe.</span>' +
         '<button class="hintmore" id="btn-trial" type="button">' +
         "Show me what breaks · costs 1 hint</button>";
@@ -619,7 +628,7 @@ var UI = (function () {
        so the player isn't left wondering whether she just spent a star on
        "nothing forced". */
     if (!step.found) {
-      bar.innerHTML = "<b>" + (step.reason === "contradiction" ? "Something's off" : "Nothing forced") +
+      text.innerHTML = "<b>" + (step.reason === "contradiction" ? "Something's off" : "Nothing forced") +
         "</b>" + step.explain +
         '<span class="free">No hint used — your stars are safe.</span>';
       bar.hidden = false;
@@ -636,9 +645,9 @@ var UI = (function () {
     Sound.unlock();
     clearHint();
     var step = Game.trialHint();
-    var bar = $("hintbar");
+    var bar = $("hintbar"), text = $("hinttext");
     if (!step.found) {
-      bar.innerHTML = "<b>Nothing forced</b>" + step.explain +
+      text.innerHTML = "<b>Nothing forced</b>" + step.explain +
         '<span class="free">No hint used — your stars are safe.</span>';
       bar.hidden = false;
       return;
@@ -648,9 +657,9 @@ var UI = (function () {
 
   /* Charge one hint, say what it was, make the move(s) and light the board. */
   function deliver(step) {
-    var bar = $("hintbar");
+    var bar = $("hintbar"), text = $("hinttext");
     Game.hints++;
-    bar.innerHTML = "<b>" + Game.techName(step.technique) + "</b>" + step.explain + refLegend(step);
+    text.innerHTML = "<b>" + Game.techName(step.technique) + "</b>" + step.explain + refLegend(step);
     bar.hidden = false;
     paintHintRefs(step);
 
@@ -803,6 +812,12 @@ var UI = (function () {
       paintPens(); renderPips(); Game.save();
     });
     $("btn-hint").addEventListener("click", doHint);
+    $("btn-hint-close").addEventListener("click", function () { Sound.unlock(); dismissHint(); });
+    /* A physical keyboard is not the target, but Escape costs nothing and is
+       what anyone playing on a desktop will try first. */
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && MetaUI.current === "game" && !$("hintbar").hidden) dismissHint();
+    });
 
     // ---- map
     $("map-back").addEventListener("click", function () { MetaUI.show("home"); });
