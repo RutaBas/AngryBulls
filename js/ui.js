@@ -370,6 +370,10 @@ var UI = (function () {
     paintCell(i);
     var now = Date.now();
     if (now - drag.lastSound >= DRAG_SOUND_MS) { drag.lastSound = now; Sound.dot(); }
+    /* A tick under the finger for the cell that just took a dot. Haptics does
+       its own throttling, on its own clock — the bell and the buzz are not the
+       same rhythm and tying them together made the buzz feel late. */
+    Haptics.tick();
   }
 
   /* Walk the straight line from the last painted cell to this one, so a fast
@@ -864,6 +868,11 @@ var UI = (function () {
     });
     $("btn-mute").addEventListener("click", function () {
       Sound.setMuted(!Sound.muted);
+      MetaUI.renderSettings();
+    });
+    $("btn-haptics").addEventListener("click", function () {
+      if (!Haptics.supported) return;          // the row says so; do not pretend
+      Haptics.setEnabled(!Haptics.enabled);
       MetaUI.renderSettings();
     });
     $("btn-howto2").addEventListener("click", openHowto);

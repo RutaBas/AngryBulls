@@ -14,7 +14,7 @@
    .githooks/. Do not edit it by hand; run the script. The activate handler
    deletes every cache that is not the current one. */
 
-var CACHE_VERSION = "bullpen-2899a0bfa8a2";
+var CACHE_VERSION = "bullpen-477fad281703";
 
 var PRECACHE = [
   "./",
@@ -42,6 +42,7 @@ var PRECACHE = [
   "./js/meta-config.js",
   "./js/theme.js",
   "./js/sound.js",
+  "./js/haptics.js",
   "./js/game.js",
   "./js/meta-ui.js",
   "./js/ui.js",

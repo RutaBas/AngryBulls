@@ -431,6 +431,9 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   font-family: var(--serif); font-size: 15px; margin-bottom: 8px;
 }
 .rowbtn.danger { color: #b0303c; }
+/* A row the device cannot honour reads as unavailable rather than merely
+   sitting there ignoring taps. Matches the disabled level arrows. */
+.rowbtn:disabled { opacity: .45; }
 .is-dark .rowbtn.danger { color: #F0AFA9; }
 
 /* ---------------------------------------------------------------- win */

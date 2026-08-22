@@ -335,6 +335,12 @@ var MetaUI = (function () {
       host.appendChild(b);
     });
     $("mute-state").textContent = Sound.muted ? "Off" : "On";
+    /* Say "Unavailable" rather than "Off" where the device cannot buzz at all.
+       An off-looking switch that does nothing when you press it is worse than
+       no switch. */
+    $("haptics-state").textContent = !Haptics.supported ? "Unavailable"
+      : Haptics.enabled ? "On" : "Off";
+    $("btn-haptics").disabled = !Haptics.supported;
     var tot = Meta.progress.totals();
     $("about-line").textContent =
       "BULLPEN · " + tot.clearedCount + " levels cleared · " + tot.totalStars + " stars. " +

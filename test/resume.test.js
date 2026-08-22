@@ -173,6 +173,9 @@ function bootApp(store) {
       }});
     }
     var Sound = nullDouble({ muted: false });
+    /* ui.js ticks the haptics on every cell a stroke paints, so the stub has to
+       exist here or a drag throws before it paints anything. */
+    var Haptics = nullDouble({ enabled: true, supported: true, backend: "none" });
     var Theme = nullDouble({ current: "cream" });
     var __screen = "home";
     var MetaUI = nullDouble({
