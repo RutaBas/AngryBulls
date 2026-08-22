@@ -14,6 +14,11 @@
   --serif: "Playfair Display", Georgia, serif;
   --sans: "Nunito Sans", system-ui, -apple-system, sans-serif;
   --pad: 16px;
+  /* THE hint heartbeat. Everything a hint points at — the mark it just placed
+     and the arrows against the line it named — beats on this one clock, so the
+     board reads as a single signal rather than two things ticking past each
+     other. One declaration, so they cannot drift apart in a later edit. */
+  --beat: 1.25s;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -211,7 +216,7 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
    hint is on screen, because a two-beat flash is over before you have looked up
    from the sentence. Both stop the moment the hint is dismissed. */
 .cell.hinted { box-shadow: inset 0 0 0 3px var(--rule); }
-.cell.hinted .dot, .cell.hinted .bullsvg { animation: hintBeat 1.25s ease-in-out infinite; }
+.cell.hinted .dot, .cell.hinted .bullsvg { animation: hintBeat var(--beat) ease-in-out infinite; }
 @keyframes hintBeat {
   0%, 100% { transform: scale(1); opacity: 1; }
   50%      { transform: scale(1.65); opacity: .6; }
@@ -248,7 +253,7 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 .hintmarks { position: absolute; inset: 0; pointer-events: none; }
 .hintmarks .hm {
   position: absolute; font-size: 11px; line-height: 1; font-style: normal;
-  color: var(--rule); animation: hmIn .22s ease both;
+  color: var(--rule);
 }
 /* A row marker is placed by `top` and a column marker by `left`, so each centres
    on that one axis only — centring both would drag the marker off the -13px
@@ -258,15 +263,21 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 /* A cover line is secondary, but its marker is still the only thing saying
    WHICH line — too faint to find would defeat the point. */
 .hintmarks .hm.cover { opacity: .7; }
-@keyframes hmIn { from { opacity: 0; } }
 /* The triangles breathe rather than sit still: on a board this colourful a
-   static 11px glyph in the margin is easy to miss entirely. */
-.hintmarks .hm { animation: hmIn .22s ease both, hmBeat 1.25s ease-in-out .22s infinite; }
+   static 11px glyph in the margin is easy to miss entirely.
+
+   NO entrance fade and NO delay. They used to fade in over .22s and start
+   beating afterwards, which left them a fifth of a second out of step with the
+   mark on the board — same speed, visibly not together. Both now start on the
+   same frame, on --beat, so they rise and fall as one. */
+.hintmarks .hm { animation: hmBeat var(--beat) ease-in-out infinite; }
 @keyframes hmBeat {
   0%, 100% { opacity: 1; }
   50%      { opacity: .35; }
 }
-.hintmarks .hm.cover { animation: hmIn .22s ease both, hmBeatCover 1.25s ease-in-out .22s infinite; }
+/* A cover line is the quieter half of the argument, so it swings through a
+   lower range — but on the same clock and the same phase as everything else. */
+.hintmarks .hm.cover { animation: hmBeatCover var(--beat) ease-in-out infinite; }
 @keyframes hmBeatCover {
   0%, 100% { opacity: .7; }
   50%      { opacity: .25; }
