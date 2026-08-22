@@ -525,15 +525,20 @@ var UI = (function () {
     [0, 1].forEach(function (side) {
       var t = document.createElement("i");
       t.className = "hm hm-" + kind + (role === "cover" ? " cover" : "");
+      /* The glyph lives in a child so it can be SCALED: the marker itself is
+         holding a translate that centres it on the line, and a keyframe touching
+         transform would throw that away. Outer positions, inner beats. */
+      var g = document.createElement("b");
       if (kind === "row") {
         t.style.top = pos;
         t.style[side ? "right" : "left"] = "-13px";
-        t.textContent = side ? "◀" : "▶";
+        g.textContent = side ? "◀" : "▶";
       } else {
         t.style.left = pos;
         t.style[side ? "bottom" : "top"] = "-13px";
-        t.textContent = side ? "▲" : "▼";
+        g.textContent = side ? "▲" : "▼";
       }
+      t.appendChild(g);
       marks.appendChild(t);
     });
   }

@@ -217,11 +217,18 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
    from the sentence. Both stop the moment the hint is dismissed. */
 .cell.hinted { box-shadow: inset 0 0 0 3px var(--rule); }
 .cell.hinted .dot, .cell.hinted .bullsvg { animation: hintBeat var(--beat) ease-in-out infinite; }
-@keyframes hintBeat {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.65); opacity: .6; }
-}
 .cell.hinted .bullsvg { transform-origin: center; }
+/* THE pulse. One keyframe for everything a hint points at — the mark on the
+   board and the arrows in the margin — so they do not merely share a clock but
+   move alike. Same swell, same fade, same easing: one signal, in several
+   places, rather than one throbbing and another blinking.
+
+   1.25 and not more, because a bull is drawn at 78% of its cell and anything
+   past ~1.28 pushes it over the cell edge and into its neighbours. */
+@keyframes hintBeat {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.25); opacity: .45; }
+}
 /* The units the hint sentence names read as BRIGHTER THAN THE REST — they keep
    their true pen colours and everything else is veiled. On a board where every
    cell is already coloured, tinting the named cells fought those colours;
@@ -260,29 +267,21 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
    gutter anchor it was placed against. */
 .hintmarks .hm-row { transform: translateY(-50%); }
 .hintmarks .hm-col { transform: translateX(-50%); }
-/* A cover line is secondary, but its marker is still the only thing saying
-   WHICH line — too faint to find would defeat the point. */
-.hintmarks .hm.cover { opacity: .7; }
 /* The triangles breathe rather than sit still: on a board this colourful a
-   static 11px glyph in the margin is easy to miss entirely.
-
-   NO entrance fade and NO delay. They used to fade in over .22s and start
-   beating afterwards, which left them a fifth of a second out of step with the
-   mark on the board — same speed, visibly not together. Both now start on the
-   same frame, on --beat, so they rise and fall as one. */
-.hintmarks .hm { animation: hmBeat var(--beat) ease-in-out infinite; }
-@keyframes hmBeat {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: .35; }
+   static 11px glyph in the margin is easy to miss entirely. The INNER element
+   carries the animation — the marker itself is centred with a translate, and a
+   keyframe touching transform would discard it — and it runs the very same
+   hintBeat as the mark on the board, with no entrance fade and no delay, so the
+   two are identical in rate, phase and motion. */
+.hintmarks .hm > b {
+  display: block; font-weight: inherit;
+  animation: hintBeat var(--beat) ease-in-out infinite;
 }
-/* A cover line is the quieter half of the argument, so it swings through a
-   lower range — but on the same clock and the same phase as everything else. */
-.hintmarks .hm.cover { animation: hmBeatCover var(--beat) ease-in-out infinite; }
-@keyframes hmBeatCover {
-  0%, 100% { opacity: .7; }
-  50%      { opacity: .25; }
-}
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+/* A cover line is the quieter half of the argument. It is dimmed STATICALLY on
+   the wrapper, and opacity multiplies through the nesting — so it beats through
+   the identical curve, just further down. A separate quieter keyframe would be
+   a second, subtly different blink, which is the thing this is fixing. */
+.hintmarks .hm.cover { opacity: .62; }
 /* The solved wave. */
 .cell.wave .bullsvg { animation: wave .5s ease both; }
 @keyframes wave {
