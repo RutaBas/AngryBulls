@@ -496,7 +496,7 @@ var UI = (function () {
 
   function clearHint() {
     for (var i = 0; i < cellEls.length; i++) {
-      cellEls[i].classList.remove("hinted", "hint-focus", "hint-cover", "hint-cue", "hint-off");
+      cellEls[i].classList.remove("hinted", "hint-cover", "hint-cue", "hint-off");
     }
     var marks = $("hintmarks");
     if (marks) marks.innerHTML = "";
@@ -565,8 +565,14 @@ var UI = (function () {
     (step.cues || []).forEach(function (c) { role[c] = "focus"; cellEls[c].classList.add("hint-cue"); });
     (step.cells || []).forEach(function (c) { role[c.index] = "focus"; });
 
+    /* A named cell is left ALONE — true pen colour, nothing painted over it.
+       Every attempt to also "lift" it fought the player's own dots, which are
+       drawn in the pen's own accent: the one treatment that widened the gap
+       measurably also dropped a dot's contrast against its cell from 3.87 to
+       3.0 on the dark ground. The separation comes from the veil, not from
+       touching the thing being pointed at. */
     for (i = 0; i < cellEls.length; i++) {
-      if (role[i] === "focus") continue;                       // true colour
+      if (role[i] === "focus") continue;
       cellEls[i].classList.add(role[i] === "cover" ? "hint-cover" : "hint-off");
     }
   }

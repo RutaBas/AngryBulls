@@ -206,7 +206,17 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   20% { transform: translateX(-4px); } 45% { transform: translateX(4px); }
   70% { transform: translateX(-2px); }
 }
-.cell.hinted { box-shadow: inset 0 0 0 3px var(--rule); animation: pulse 1.1s ease 2; }
+/* The cell the hint just settled. The ring says where; the mark inside PULSES
+   so the eye lands on it without hunting — it keeps going for as long as the
+   hint is on screen, because a two-beat flash is over before you have looked up
+   from the sentence. Both stop the moment the hint is dismissed. */
+.cell.hinted { box-shadow: inset 0 0 0 3px var(--rule); }
+.cell.hinted .dot, .cell.hinted .bullsvg { animation: hintBeat 1.25s ease-in-out infinite; }
+@keyframes hintBeat {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.65); opacity: .6; }
+}
+.cell.hinted .bullsvg { transform-origin: center; }
 /* The units the hint sentence names read as BRIGHTER THAN THE REST — they keep
    their true pen colours and everything else is veiled. On a board where every
    cell is already coloured, tinting the named cells fought those colours;
@@ -220,8 +230,15 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 .cell.hint-off::before, .cell.hint-cover::before {
   content: ""; position: absolute; inset: 0; background: var(--bg); pointer-events: none;
 }
-.cell.hint-off::before { opacity: .58; }
-.cell.hint-cover::before { opacity: .2; }
+.cell.hint-off::before { opacity: .82; }
+.cell.hint-cover::before { opacity: .34; }
+/* The dark ground needs a different veil. Veiling a dark pen towards the dark
+   background barely moves it — measured across all ten pens, the old treatment
+   separated the named line from the rest by 31% of luminance on cream but only
+   4.6% on Dark. Veiling to BLACK instead drops a dark pen well clear of its
+   neighbours, which is the same instruction the cream veil gives. */
+.is-dark .cell.hint-off::before { background: #000; opacity: .72; }
+.is-dark .cell.hint-cover::before { background: #000; opacity: .3; }
 .cell > * { position: relative; z-index: 1; }
 .cell.hint-cue { box-shadow: inset 0 0 0 2px var(--rule); }
 
@@ -242,6 +259,18 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
    WHICH line — too faint to find would defeat the point. */
 .hintmarks .hm.cover { opacity: .7; }
 @keyframes hmIn { from { opacity: 0; } }
+/* The triangles breathe rather than sit still: on a board this colourful a
+   static 11px glyph in the margin is easy to miss entirely. */
+.hintmarks .hm { animation: hmIn .22s ease both, hmBeat 1.25s ease-in-out .22s infinite; }
+@keyframes hmBeat {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .35; }
+}
+.hintmarks .hm.cover { animation: hmIn .22s ease both, hmBeatCover 1.25s ease-in-out .22s infinite; }
+@keyframes hmBeatCover {
+  0%, 100% { opacity: .7; }
+  50%      { opacity: .25; }
+}
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 /* The solved wave. */
 .cell.wave .bullsvg { animation: wave .5s ease both; }

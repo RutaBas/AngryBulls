@@ -14,7 +14,7 @@
    .githooks/. Do not edit it by hand; run the script. The activate handler
    deletes every cache that is not the current one. */
 
-var CACHE_VERSION = "bullpen-acc49830e953";
+var CACHE_VERSION = "bullpen-80630e328244";
 
 var PRECACHE = [
   "./",
