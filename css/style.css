@@ -265,8 +265,7 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 
    FLOATED, not absolute: a 44px target parked over the corner would sit on top
    of the first line or two of the sentence. Floated, the text wraps around it
-   for exactly as many lines as it covers and no more, and the negative margins
-   pull it into the card's own padding so it costs the layout nothing. */
+   for exactly as many lines as it covers and no more. */
 .hintbar .hintx {
   float: right; width: 44px; height: 44px; margin-left: 8px;
   display: flex; align-items: flex-start; justify-content: flex-end;
