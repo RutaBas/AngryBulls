@@ -154,12 +154,14 @@ var MetaUI = (function () {
   /* 1,000 levels per tier is unusable as a flat list, so the map is paged into
      hundreds and opens on the page holding the player's furthest level. */
   function renderMap(arg) {
+    var autoPage = true;
     if (typeof arg === "string") {
       mapTier = arg;
       mapPage = Math.floor((Meta.progress.nextLevel(mapTier) - 1) / PAGE);
     } else if (arg && typeof arg === "object") {
       if (arg.tier) mapTier = arg.tier;
-      mapPage = arg.page === undefined
+      autoPage = arg.page === undefined;
+      mapPage = autoPage
         ? Math.floor((Meta.progress.nextLevel(mapTier) - 1) / PAGE) : arg.page;
     }
     var key = mapTier;
@@ -233,6 +235,17 @@ var MetaUI = (function () {
     // Scroll the current page button into view without moving the whole screen.
     var on = strip.querySelector(".on");
     if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "center" });
+
+    // Jump straight to the next level to play, so opening a tier never lands
+    // the player at level 1 of a page they have mostly cleared. Deferred a
+    // frame because show() resets the screen's scroll after this render, and
+    // skipped when the player picked a page themselves.
+    if (autoPage) {
+      var cur = grid.querySelector(".cur");
+      if (cur && cur.scrollIntoView) setTimeout(function () {
+        cur.scrollIntoView({ block: "center" });
+      }, 0);
+    }
     if (!open) { /* rows are already disabled by mapFor's unlocked flag */ }
   }
 
