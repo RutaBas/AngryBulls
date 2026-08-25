@@ -947,9 +947,49 @@ var UI = (function () {
     try { seen = localStorage.getItem("bullpen:seen-howto") === "1"; } catch (e) {}
     if (!seen) openHowto();
 
+    /* Registering with updateViaCache:"none" is the whole reason a new build
+       reaches the phone at all.
+
+       The default is "imports", under which the browser checks for a new worker
+       by re-reading sw.js THROUGH ITS OWN HTTP CACHE — so a stale sw.js hands
+       back the same bytes, the browser concludes nothing changed, and an
+       installed app can sit on a build for hours or days. That is what had Ruta
+       playing builds two and three commits behind all week, and why the fix for
+       it kept looking like "swipe the app out and open it again", which only
+       ever worked by accident.
+
+       "none" forces the sw.js check itself onto the network. Paired with an
+       update() on every foreground, a new build is picked up the first time the
+       app is opened with a signal. */
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {
-        navigator.serviceWorker.register("sw.js").catch(function () {});
+        var reloaded = false;
+        var hadController = !!navigator.serviceWorker.controller;
+
+        navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
+          .then(function (reg) {
+            function check() {
+              if (document.visibilityState === "visible") {
+                try { reg.update(); } catch (e) {}
+              }
+            }
+            document.addEventListener("visibilitychange", check);
+            check();
+          })
+          .catch(function () {});
+
+        /* A new worker taking over means the cached files changed under a page
+           that is already running — half of it is now the old build. Reload,
+           but ONLY off the board: a reload mid-puzzle would be its own bug, and
+           the new worker is installed either way, so the next launch is fresh.
+           hadController guards the very first install, where there is no
+           previous build to be stale. */
+        navigator.serviceWorker.addEventListener("controllerchange", function () {
+          if (!hadController || reloaded) return;
+          if (MetaUI.current === "game") return;
+          reloaded = true;
+          location.reload();
+        });
       });
     }
   }
