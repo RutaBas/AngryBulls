@@ -338,7 +338,7 @@ var MetaUI = (function () {
     /* Say "Unavailable" rather than "Off" where the device cannot buzz at all.
        An off-looking switch that does nothing when you press it is worse than
        no switch. */
-    $("haptics-state").textContent = !Haptics.supported ? "Unavailable"
+    $("haptics-state").textContent = !Haptics.supported ? (Haptics.why || "Unavailable")
       : Haptics.enabled ? "On" : "Off";
     $("btn-haptics").disabled = !Haptics.supported;
     var tot = Meta.progress.totals();

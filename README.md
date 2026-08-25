@@ -107,6 +107,7 @@ node test/hint-regression.js    # the hint bridge: no stale, no dead-end hints
 node test/levels-contract.test.js  # the shipped level table matches its declared tiers
 node test/resume.test.js        # a save round-trips
 node test/cache-stamp.test.js   # sw.js's cache version matches the bytes it ships
+node test/haptics.test.js       # the iOS window haptics can actually work in
 ```
 
 ## After a fresh clone
