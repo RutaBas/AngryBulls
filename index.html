@@ -205,6 +205,10 @@
     <button class="rowbtn" id="btn-howto2" type="button">How to play<span>›</span></button>
     <button class="rowbtn danger" id="btn-reset" type="button">Reset all progress<span>⌫</span></button>
     <p class="note" id="about-line"></p>
+    <!-- Reads back the build actually running and what it decided about this
+         device. The service worker cache name IS the build id, so this cannot
+         disagree with what the phone is serving. -->
+    <p class="note" id="diag-line"></p>
   </div>
 </section>
 

@@ -376,10 +376,32 @@ var MetaUI = (function () {
     $("haptics-state").textContent = !Haptics.supported ? (Haptics.why || "Unavailable")
       : Haptics.enabled ? "On" : "Off";
     $("btn-haptics").disabled = !Haptics.supported;
+    renderDiagnostics();
     var tot = Meta.progress.totals();
     $("about-line").textContent =
       "BULLPEN · " + tot.clearedCount + " levels cleared · " + tot.totalStars + " stars. " +
       "Boards are generated on your device and verified unique by the solver.";
+  }
+
+  /* Which build is on this device, and what it concluded about haptics. Asked
+     for by a real dead end: "it doesn't buzz" is unanswerable when neither of us
+     can tell whether the phone is even running the new code. The build id comes
+     from the service worker's own cache name, so it reports what is BEING
+     SERVED rather than what was published. */
+  function renderDiagnostics() {
+    var el = $("diag-line");
+    if (!el) return;
+    var bits = ["haptics: " + Haptics.backend];
+    if (Haptics.iosVersion !== null) bits.push("iOS " + Haptics.iosVersion);
+    el.textContent = "build … · " + bits.join(" · ");
+    if (!window.caches || !caches.keys) { el.textContent = "build unknown · " + bits.join(" · "); return; }
+    caches.keys().then(function (keys) {
+      var mine = keys.filter(function (k) { return k.indexOf("bullpen-") === 0; });
+      var id = mine.length ? mine[mine.length - 1].replace("bullpen-", "").slice(0, 6) : "none";
+      el.textContent = "build " + id + " · " + bits.join(" · ");
+    }).catch(function () {
+      el.textContent = "build unknown · " + bits.join(" · ");
+    });
   }
 
   /* --- win --------------------------------------------------------------- */

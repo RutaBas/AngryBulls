@@ -63,7 +63,14 @@ var Haptics = (function () {
     if (lever || typeof document === "undefined") return lever;
     var label = document.createElement("label");
     label.setAttribute("aria-hidden", "true");
-    label.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
+    /* RENDERED, not collapsed. The first version of this was width:0;height:0
+       with overflow:hidden, which is a fair way to hide a thing and a bad way
+       to hide THIS one: a control with no box may never be laid out, and the
+       haptic is a side effect of WebKit actually operating a switch. So it is
+       given a real size and pushed off-screen instead — the shape every working
+       implementation of this trick uses. */
+    label.style.cssText = "position:fixed;left:-200px;top:0;width:44px;height:26px;" +
+                          "opacity:0;pointer-events:none;-webkit-tap-highlight-color:transparent";
     var box = document.createElement("input");
     box.type = "checkbox";
     box.setAttribute("switch", "");
@@ -150,6 +157,8 @@ var Haptics = (function () {
     /* Which backend answered, for the Settings line and for a bug report that
        starts "the buzzing does not work on my phone". */
     get backend() { return canVibrate ? "vibrate" : useLever ? "switch" : "none"; },
+    /* For the Settings diagnostics line: what this browser told us about itself. */
+    get iosVersion() { return iosVersion(); },
     /* Why it is off, in words, for the Settings line — "Unavailable" alone
        invites the reasonable guess that the app forgot to implement it. */
     get why() {
