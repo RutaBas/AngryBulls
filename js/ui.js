@@ -64,9 +64,11 @@ var UI = (function () {
     });
   }
 
-  function startDaily(dateKey) {
-    var d = Meta.dailyPuzzle(dateKey);
-    if (savedIs({ mode: "daily", dateKey: d.dateKey })) { resumeSave(); return; }
+  function startDaily(dateKey, track) {
+    var d = Meta.dailyPuzzle(dateKey, track);
+    /* Both tracks share the dateKey, so the tier must match too — otherwise
+       starting the Hard daily would resume a half-finished Easy board. */
+    if (savedIs({ mode: "daily", dateKey: d.dateKey, tier: d.tier })) { resumeSave(); return; }
     withBusy(function () {
       var built = Game.build(d.genTier, d.seed);
       Game.load({
@@ -206,7 +208,8 @@ var UI = (function () {
   function whereText() {
     if (Game.mode === "level") return tierName() + " · Level " + Game.level;
     if (Game.mode === "daily") {
-      return "Daily · " + tierName() + " · " + shortDate(Game.dateKey);
+      return "Daily " + Meta.trackLabel(Meta.trackOfTier(Game.tier)) + " · " +
+        tierName() + " · " + shortDate(Game.dateKey);
     }
     return tierName() || "Free play";
   }
@@ -237,7 +240,8 @@ var UI = (function () {
         big.appendChild(mo);
         big.appendChild(document.createTextNode(String(+parts[2])));
       }
-      $("level-lbl").textContent = "Daily · " + tierName();
+      $("level-lbl").textContent =
+        "Daily " + Meta.trackLabel(Meta.trackOfTier(Game.tier)) + " · " + tierName();
       $("btn-prev").hidden = $("btn-next").hidden = true;
     } else {
       $("big-num").classList.remove("bignum-date");
@@ -762,15 +766,21 @@ var UI = (function () {
     // ---- home
     $("btn-continue").addEventListener("click", function () {
       Sound.unlock();
-      if (this.dataset.action === "resume") resumeSave();
-      else startLevel(this.dataset.tier, +this.dataset.level);
+      resumeSave();
+    });
+    $("btn-daily-easy").addEventListener("click", function () {
+      Sound.unlock();
+      startDaily(this.dataset.date, "easy");
+    });
+    $("btn-daily-hard").addEventListener("click", function () {
+      Sound.unlock();
+      startDaily(this.dataset.date, "hard");
     });
     $("tier-list").addEventListener("click", function (e) {
       var row = e.target.closest(".tierrow");
       if (!row) return;
       MetaUI.show("map", row.dataset.tier);
     });
-    $("btn-daily").addEventListener("click", function () { MetaUI.show("daily"); });
     $("btn-calendar").addEventListener("click", function () { MetaUI.show("daily"); });
     $("btn-records").addEventListener("click", function () { MetaUI.show("records"); });
     $("btn-settings").addEventListener("click", function () { MetaUI.show("settings"); });
@@ -851,10 +861,16 @@ var UI = (function () {
 
     // ---- daily
     $("daily-back").addEventListener("click", function () { MetaUI.show("home"); });
-    $("btn-daily-play").addEventListener("click", function () { startDaily(this.dataset.date); });
+    $("daily-tracks").addEventListener("click", function (e) {
+      var c = e.target.closest(".chip");
+      if (c) MetaUI.show("daily", c.dataset.track);
+    });
+    $("btn-daily-play").addEventListener("click", function () {
+      startDaily(this.dataset.date, MetaUI.dailyTrack);
+    });
     $("cal-grid").addEventListener("click", function (e) {
       var b = e.target.closest(".day");
-      if (b && !b.disabled) startDaily(b.dataset.date);
+      if (b && !b.disabled) startDaily(b.dataset.date, MetaUI.dailyTrack);
     });
 
     // ---- records / settings

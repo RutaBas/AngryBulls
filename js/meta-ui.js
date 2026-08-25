@@ -46,7 +46,7 @@ var MetaUI = (function () {
     current = name;
     if (name === "home") renderHome();
     if (name === "map") renderMap(arg);
-    if (name === "daily") renderDaily();
+    if (name === "daily") renderDaily(arg);
     if (name === "records") renderRecords();
     if (name === "settings") renderSettings();
     var el = $("screen-" + name);
@@ -82,24 +82,29 @@ var MetaUI = (function () {
     renderPlan();
     var h = Meta.home();
 
-    // Primary action: resume a save if there is one, else the next level.
+    /* The primary slot belongs to the two dailies. A half-finished board gets
+       a slim Continue row under them; with no save the row disappears rather
+       than showing a dead button. */
+    ["easy", "hard"].forEach(function (track) {
+      var d = Meta.dailyTrack(track);
+      var plan = d.plan();
+      var st = d.currentStreak();
+      var solved = d.isSolved(plan.dateKey);
+      var btn = $("btn-daily-" + track);
+      $("daily-" + track + "-sub").textContent =
+        plan.dateKey.slice(5).replace("-", "/") + " · " +
+        Meta.gridLabel(plan.tier) + " · 🔥 " + st.streak;
+      btn.classList.toggle("done-daily", solved);
+      btn.dataset.date = plan.dateKey;
+    });
+
     var saved = Game.hasSave() ? Game.savedContext() : null;
-    var btn = $("btn-continue");
-    if (saved && saved.mode === "daily") {
-      $("continue-main").textContent = "Continue";
-      $("continue-sub").textContent = "Daily · " + saved.dateKey;
-      btn.dataset.action = "resume";
-    } else if (saved && saved.tier) {
-      $("continue-main").textContent = "Continue";
-      $("continue-sub").textContent = Meta.ladder[saved.tier] + " · level " + saved.level;
-      btn.dataset.action = "resume";
-    } else {
-      var t = firstUnfinishedTier(h);
-      $("continue-main").textContent = "Play";
-      $("continue-sub").textContent = Meta.ladder[t.key] + " · level " + t.next;
-      btn.dataset.action = "next";
-      btn.dataset.tier = t.key;
-      btn.dataset.level = t.next;
+    var cont = $("btn-continue");
+    cont.hidden = !saved;
+    if (saved) {
+      $("continue-sub").textContent = saved.mode === "daily"
+        ? "Daily " + Meta.trackLabel(Meta.trackOfTier(saved.tier)) + " · " + saved.dateKey
+        : Meta.ladder[saved.tier] + " · level " + saved.level;
     }
 
     // Tier rows, each in its own pen pastel, ascending.
@@ -130,23 +135,6 @@ var MetaUI = (function () {
       host.appendChild(el);
     });
 
-    // Daily
-    var plan = h.daily.plan;
-    $("daily-date").textContent = plan.dateKey.slice(5).replace("-", "/") +
-      " · " + Meta.ladder[plan.tier];
-    $("home-streak").textContent = "🔥 " + h.daily.streak;
-    $("btn-daily").classList.toggle("done", h.daily.solvedToday);
-  }
-
-  function firstUnfinishedTier(h) {
-    for (var i = 0; i < h.tiers.length; i++) {
-      var t = h.tiers[i];
-      if (!t.unlocked) continue;
-      var next = Meta.progress.nextLevel(t.key);
-      var lv = Meta.progress.level(t.key, next);
-      if (!lv.plays || next < t.levels) return { key: t.key, next: next };
-    }
-    return { key: h.tiers[0].key, next: Meta.progress.nextLevel(h.tiers[0].key) };
   }
 
   /* --- level map --------------------------------------------------------- */
@@ -260,21 +248,32 @@ var MetaUI = (function () {
     host.innerHTML = out;
   }
 
-  function renderDaily() {
-    var cal = Meta.daily.calendar();
-    var plan = Meta.daily.plan();
-    var solvedToday = Meta.daily.isSolved(plan.dateKey);
-    var streak = Meta.daily.currentStreak();
-    var solvedCount = cal.days.filter(function (d) { return d.solved; }).length;
+  var dailyTrack = "easy";
+
+  function renderDaily(track) {
+    if (track === "easy" || track === "hard") dailyTrack = track;
+    var d = Meta.dailyTrack(dailyTrack);
+    var other = Meta.dailyTrack(dailyTrack === "hard" ? "easy" : "hard");
+    var cal = d.calendar();
+    var otherCal = other.calendar();
+    var plan = d.plan();
+    var solvedToday = d.isSolved(plan.dateKey);
+    var streak = d.currentStreak();
+    var solvedCount = cal.days.filter(function (x) { return x.solved; }).length;
+
+    $("daily-tracks").querySelectorAll(".chip").forEach(function (c) {
+      c.classList.toggle("on", c.dataset.track === dailyTrack);
+    });
 
     $("daily-month").textContent =
       MONTHS[cal.month] + " " + cal.year + " · " + solvedCount + " of " + cal.days.length + " solved";
     $("daily-play-main").textContent = solvedToday ? "Replay today" : "Play today";
-    $("daily-play-sub").textContent = Meta.labelOf(plan.tier);
+    $("daily-play-sub").textContent =
+      Meta.trackLabel(dailyTrack) + " · " + Meta.labelOf(plan.tier);
     $("btn-daily-play").dataset.date = plan.dateKey;
 
     $("daily-streak-n").textContent = streak.streak;
-    $("daily-streak-lab").textContent = "day streak · best " + Meta.daily.state.best;
+    $("daily-streak-lab").textContent = "day streak · best " + d.state.best;
     renderFreezes($("daily-freezes"), streak.freezes);
 
     var head = $("cal-head");
@@ -289,15 +288,22 @@ var MetaUI = (function () {
     var grid = $("cal-grid");
     grid.innerHTML = "";
     for (var p = 0; p < cal.days[0].dow; p++) grid.appendChild(document.createElement("span"));
-    cal.days.forEach(function (d) {
+    cal.days.forEach(function (x, i) {
       var el = document.createElement("button");
       el.type = "button";
-      el.className = "day" + (d.solved ? " solved" : "") + (d.isToday ? " today" : "") +
-        (d.playable ? "" : " future");
-      el.disabled = !d.playable;
-      el.dataset.date = d.dateKey;
-      el.textContent = d.dom;
-      if (d.solved) el.title = fmt(d.ms);
+      el.className = "day" + (x.solved ? " solved" : "") + (x.isToday ? " today" : "") +
+        (x.playable ? "" : " future");
+      el.disabled = !x.playable;
+      el.dataset.date = x.dateKey;
+      // Both tracks' marks on every day: the fill is the selected track, the
+      // two dots under the number are Easy then Hard, so a glance shows what
+      // the OTHER track still has open without switching chips.
+      var easySolved = dailyTrack === "easy" ? x.solved : otherCal.days[i].solved;
+      var hardSolved = dailyTrack === "hard" ? x.solved : otherCal.days[i].solved;
+      el.innerHTML = '<span class="n">' + x.dom + "</span>" +
+        '<span class="dots"><i class="' + (easySolved ? "on" : "") + '"></i>' +
+        '<i class="' + (hardSolved ? "on" : "") + '"></i></span>';
+      if (x.solved) el.title = fmt(x.ms);
       grid.appendChild(el);
     });
   }
@@ -327,10 +333,13 @@ var MetaUI = (function () {
       host.appendChild(el);
     });
 
-    var d = Meta.daily.stats();
+    var de = Meta.dailyTrack("easy").stats();
+    var dh = Meta.dailyTrack("hard").stats();
     $("records-daily").innerHTML =
-      "<b>Daily</b> · " + d.solved + " solved · streak " + d.streak +
-      " (best " + d.best + ") · fastest " + (d.bestMs ? fmt(d.bestMs) : "—");
+      "<b>Daily Easy</b> · " + de.solved + " solved · streak " + de.streak +
+      " (best " + de.best + ") · fastest " + (de.bestMs ? fmt(de.bestMs) : "—") + "<br>" +
+      "<b>Daily Hard</b> · " + dh.solved + " solved · streak " + dh.streak +
+      " (best " + dh.best + ") · fastest " + (dh.bestMs ? fmt(dh.bestMs) : "—");
   }
 
   /* --- settings ---------------------------------------------------------- */
@@ -410,7 +419,8 @@ var MetaUI = (function () {
     if (Game.mode === "level") {
       $("win-sub").textContent = Meta.ladder[Game.tier] + " · Level " + Game.level;
     } else if (Game.mode === "daily") {
-      $("win-sub").textContent = "Daily · " + Game.dateKey;
+      $("win-sub").textContent =
+        "Daily " + Meta.trackLabel(Meta.trackOfTier(Game.tier)) + " · " + Game.dateKey;
     } else {
       $("win-sub").textContent = "Free play · " + Game.N + "×" + Game.N;
     }
@@ -511,6 +521,7 @@ var MetaUI = (function () {
     renderMap: renderMap,
     renderSettings: renderSettings,
     fmt: fmt,
+    get dailyTrack() { return dailyTrack; },
     get current() { return current; },
     get mapTier() { return mapTier; },
     get lastResult() { return lastResult; }

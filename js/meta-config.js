@@ -63,11 +63,12 @@ var Meta = (function () {
   var curves = {};
   tiers.forEach(function (t) { curves[t.key] = curveFor(t.key); });
 
-  /* The daily rotates the tier by weekday — a short one on Monday, the big
-     board at the weekend. UTC weekday, matching daily.js's day boundary.
-     Badlands appears on Saturday whether or not the campaign gate is open:
-     the daily is a taste of the hard end, not a reward for grinding. */
-  var DAILY_BY_DOW = ["rangeland", "paddock", "pasture", "pasture", "rangeland", "rangeland", "badlands"];
+  /* TWO dailies a day, at fixed sizes, instead of a tier that rotates by
+     weekday. A rotating tier made "the daily" unpredictable from the home
+     screen; a fixed Easy and a fixed Hard are each a consistent ritual, and
+     each keeps its own streak. Easy inherits the original daily's store key,
+     so pre-split history and streaks carry into the Easy track. */
+  var TRACK_TIER = { easy: "paddock", hard: "rangeland" };
 
   var meta = GameMeta.create({
     id: "bullpen",
@@ -75,14 +76,55 @@ var Meta = (function () {
     tiers: tiers,
     curves: curves,
     daily: {
+      tier: TRACK_TIER.easy,
       freezes: { max: 3, earnEvery: 7 },
-      firstDay: "2026-07-01",
-      plan: function (day, dateKey) {
-        var d = new Date(day * 86400000);
-        return { day: day, dateKey: dateKey, tier: DAILY_BY_DOW[d.getUTCDay()], index: day };
-      }
+      firstDay: "2026-07-01"
     }
   });
+
+  /* The Hard track: same Daily machinery, its own store key, its own streak
+     and freezes. Starts fresh — old solves stay with Easy. */
+  meta.daily2 = new GameMeta.Daily({
+    store: meta.store,
+    key: "daily2",
+    tier: TRACK_TIER.hard,
+    freezes: { max: 3, earnEvery: 7 },
+    firstDay: "2026-07-01",
+    starsFor: GameMeta.Progress.defaultStars
+  });
+
+  meta.trackTier = TRACK_TIER;
+  meta.dailyTrack = function (track) { return track === "hard" ? meta.daily2 : meta.daily; };
+  /* The save file and win context carry only the tier, so the track is derived
+     from it rather than stored — the two tracks use different tiers. */
+  meta.trackOfTier = function (tierKey) { return tierKey === TRACK_TIER.hard ? "hard" : "easy"; };
+  meta.trackLabel = function (track) { return track === "hard" ? "Hard" : "Easy"; };
+
+  /* recordWin routes daily solves by tier: the library instance only knows the
+     Easy track, so a Hard solve is recorded here through the same steps the
+     library takes (streak, records, rank), against the Hard instance. */
+  var baseRecordWin = meta.recordWin;
+  meta.recordWin = function (ctx) {
+    if (ctx && ctx.mode === "daily" && meta.trackOfTier(ctx.tier) === "hard") {
+      var out = {
+        mode: "daily", tier: ctx.tier, level: 0,
+        ms: ctx.ms || 0, hints: ctx.hints || 0, mistakes: ctx.mistakes || 0
+      };
+      out.daily = meta.daily2.record(ctx.dateKey, ctx);
+      out.stars = out.daily.stars;
+      out.alreadySolved = out.daily.alreadySolved;
+      if (!out.alreadySolved) {
+        out.records = meta.records.record(ctx.tier, ctx.ms);
+        out.rankPercentile = meta.rank.percentile(ctx.tier, ctx.ms);
+        meta.rank.submit({
+          mode: "daily", tier: ctx.tier, dateKey: ctx.dateKey,
+          ms: ctx.ms, stars: out.stars, hints: ctx.hints, mistakes: ctx.mistakes
+        });
+      }
+      return out;
+    }
+    return baseRecordWin(ctx);
+  };
 
   /* --- game-specific helpers layered on top ------------------------------ */
 
@@ -153,13 +195,14 @@ var Meta = (function () {
      generator's own dailySeed(). Par is computed live from the graded board
      through the same js/par.js the build script used, so campaign and daily
      agree about what "under par" means. */
-  meta.dailyPuzzle = function (dateKey) {
-    var plan = meta.daily.plan(dateKey);
+  meta.dailyPuzzle = function (dateKey, track) {
+    var plan = meta.dailyTrack(track).plan(dateKey);
     var def = DEFS[plan.tier];
     return {
       dateKey: plan.dateKey,
       day: plan.day,
       tier: plan.tier,
+      track: meta.trackOfTier(plan.tier),
       genTier: def.gen,
       /* Advisory only — the board's real N comes back from the generator. On a
          mixed-size tier `def.N` may be absent, so fall back to the tier's

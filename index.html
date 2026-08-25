@@ -49,16 +49,20 @@
     </div>
     <div class="grow"></div>
 
-    <button class="primary" id="btn-continue" type="button">
-      <span id="continue-main">Play</span><small id="continue-sub"></small>
+    <div class="dailies">
+      <button class="primary daily-easy" id="btn-daily-easy" type="button">
+        <span>Daily · Easy</span><small id="daily-easy-sub"></small>
+      </button>
+      <button class="primary ghost daily-hard" id="btn-daily-hard" type="button">
+        <span>Daily · Hard</span><small id="daily-hard-sub"></small>
+      </button>
+    </div>
+
+    <button class="dailyrow" id="btn-continue" type="button" hidden>
+      <b>Continue</b><span class="dim" id="continue-sub"></span>
     </button>
 
     <div class="tierrows" id="tier-list"></div>
-
-    <button class="dailyrow" id="btn-daily" type="button">
-      <b>Daily</b><span class="dim" id="daily-date"></span>
-      <span class="streak" id="home-streak"></span>
-    </button>
 
     <div class="homebar">
       <button class="linkbtn" id="btn-calendar" type="button">Calendar</button>
@@ -145,6 +149,10 @@
     <div class="pagehead">
       <button class="iconbtn" id="daily-back" type="button" aria-label="Back">‹</button>
       <div><h2>Daily</h2><p class="sub" id="daily-month"></p></div>
+    </div>
+    <div class="chips" id="daily-tracks">
+      <button class="chip" type="button" data-track="easy">Easy</button>
+      <button class="chip" type="button" data-track="hard">Hard</button>
     </div>
     <button class="primary" id="btn-daily-play" type="button">
       <span id="daily-play-main">Play today</span><small id="daily-play-sub"></small>

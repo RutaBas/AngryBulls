@@ -97,6 +97,18 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
   letter-spacing: .1em; text-transform: uppercase; margin-top: 3px;
 }
 
+/* Two dailies side by side in the primary slot. Hard is the outlined twin of
+   the filled Easy button, so the pair reads as one choice, not two features. */
+.dailies { display: flex; gap: 10px; }
+.dailies .primary { flex: 1; padding: 13px 8px; font-size: 17px; }
+.primary.ghost {
+  background: transparent; color: var(--rule);
+  border: 2px solid var(--rule);
+}
+.primary.done-daily { opacity: .62; }
+
+.dailyrow { margin-bottom: 12px; }
+
 .tierrows { display: grid; gap: 8px; margin-bottom: 11px; }
 .tierrow {
   display: flex; align-items: center; gap: 10px; width: 100%;
@@ -400,8 +412,16 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 .calhead .dow { text-align: center; font-size: 10px; opacity: .5; }
 .day {
   aspect-ratio: 1; border-radius: 10px; background: var(--chip); font-size: 13px;
-  display: flex; align-items: center; justify-content: center; min-height: 40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40px; gap: 2px;
 }
+/* One dot per track under the day number — Easy then Hard — so the calendar
+   shows both tracks' solves no matter which chip is selected. */
+.day .dots { display: flex; gap: 3px; }
+.day .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--rule); opacity: .15; }
+.day .dots i.on { opacity: .95; }
+.day.solved .dots i { background: var(--bullink); }
+.is-dark .day.solved .dots i { background: var(--ink); }
 .day.solved { background: var(--p3f); color: var(--bullink); font-weight: 700; }
 .is-dark .day.solved { color: var(--ink); }
 .day.today { border: 2px solid var(--rule); }
