@@ -69,8 +69,13 @@ var Haptics = (function () {
        haptic is a side effect of WebKit actually operating a switch. So it is
        given a real size and pushed off-screen instead — the shape every working
        implementation of this trick uses. */
+    /* No pointer-events:none, and not fully transparent. The element is parked
+       off-screen so it can never intercept a touch anyway, which is all
+       pointer-events was buying — and both of those are ways of telling WebKit
+       "this control is not really interactive", which is the one thing it must
+       not conclude about the control whose interactivity IS the feature. */
     label.style.cssText = "position:fixed;left:-200px;top:0;width:44px;height:26px;" +
-                          "opacity:0;pointer-events:none;-webkit-tap-highlight-color:transparent";
+                          "opacity:0.01;-webkit-tap-highlight-color:transparent";
     var box = document.createElement("input");
     box.type = "checkbox";
     box.setAttribute("switch", "");
