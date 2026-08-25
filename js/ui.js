@@ -782,6 +782,7 @@ var UI = (function () {
       MetaUI.show("map", row.dataset.tier);
     });
     $("btn-calendar").addEventListener("click", function () { MetaUI.show("daily"); });
+    $("btn-cal-link").addEventListener("click", function () { MetaUI.show("daily"); });
     $("btn-records").addEventListener("click", function () { MetaUI.show("records"); });
     $("btn-settings").addEventListener("click", function () { MetaUI.show("settings"); });
     $("btn-howto").addEventListener("click", openHowto);

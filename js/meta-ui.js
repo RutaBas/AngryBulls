@@ -89,14 +89,27 @@ var MetaUI = (function () {
       var d = Meta.dailyTrack(track);
       var plan = d.plan();
       var st = d.currentStreak();
-      var solved = d.isSolved(plan.dateKey);
-      var btn = $("btn-daily-" + track);
+      var entry = d.entry(plan.dateKey);
+      $("daily-" + track + "-fire").textContent = "🔥 " + st.streak;
       $("daily-" + track + "-sub").textContent =
-        plan.dateKey.slice(5).replace("-", "/") + " · " +
-        Meta.gridLabel(plan.tier) + " · 🔥 " + st.streak;
-      btn.classList.toggle("done-daily", solved);
-      btn.dataset.date = plan.dateKey;
+        Meta.gridLabel(plan.tier) + " · " + Meta.ladder[plan.tier];
+      var val = $("daily-" + track + "-val");
+      if (entry) {
+        var pips = "";
+        for (var i = 0; i < 3; i++) {
+          pips += '<span class="' + (i < (entry.stars || 0) ? "" : "off") + '">★</span>';
+        }
+        val.innerHTML = fmt(entry.ms) + ' <span class="pips">' + pips + "</span>";
+      } else {
+        val.textContent = "Play";
+      }
+      $("btn-daily-" + track).dataset.date = plan.dateKey;
     });
+
+    // The date lives once, in the header's calendar link, not in both cards.
+    var todayKey = Meta.daily.plan().dateKey;
+    $("btn-cal-link").textContent =
+      MONTHS[+todayKey.slice(5, 7) - 1].slice(0, 3) + " " + (+todayKey.slice(8)) + " · Calendar ›";
 
     var saved = Game.hasSave() ? Game.savedContext() : null;
     var cont = $("btn-continue");
