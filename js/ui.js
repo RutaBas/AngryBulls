@@ -892,7 +892,11 @@ var UI = (function () {
        every tap twice. `change` also means the switch really toggled, which is
        what the haptic hangs off. */
     (function () {
-      var box = $("row-haptic-test").querySelector("input[switch]");
+      /* Absent in the stub DOM the resume test drives ui.js against, and boot()
+         must not die because a diagnostic row is missing. */
+      var row = $("row-haptic-test");
+      var box = row && row.querySelector("input[switch]");
+      if (!box) return;
       var n = 0;
       box.addEventListener("change", function () {
         n++;
