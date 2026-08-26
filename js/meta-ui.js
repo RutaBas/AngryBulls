@@ -373,8 +373,12 @@ var MetaUI = (function () {
     /* Say "Unavailable" rather than "Off" where the device cannot buzz at all.
        An off-looking switch that does nothing when you press it is worse than
        no switch. */
-    $("haptics-state").textContent = !Haptics.supported ? (Haptics.why || "Unavailable")
-      : Haptics.enabled ? "On" : "Off";
+    /* On iOS the buzz answers TAPS only — a swipe never operates the switch that
+       plays it — so the row says which, rather than a bare "On" that would read
+       as a promise about swiping. */
+    $("haptics-state").textContent = !Haptics.supported ? "Unavailable"
+      : !Haptics.enabled ? "Off"
+      : Haptics.tapsOnly ? "On · taps" : "On";
     $("btn-haptics").disabled = !Haptics.supported;
     renderDiagnostics();
     var tot = Meta.progress.totals();
@@ -391,8 +395,7 @@ var MetaUI = (function () {
   function renderDiagnostics() {
     var el = $("diag-line");
     if (!el) return;
-    var bits = ["haptics: " + Haptics.backend];
-    if (Haptics.iosVersion !== null) bits.push("iOS " + Haptics.iosVersion);
+    var bits = ["haptics: " + Haptics.mode];
     el.textContent = "build … · " + bits.join(" · ");
     if (!window.caches || !caches.keys) { el.textContent = "build unknown · " + bits.join(" · "); return; }
     caches.keys().then(function (keys) {

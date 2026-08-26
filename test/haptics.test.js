@@ -1,30 +1,31 @@
 "use strict";
 
-/* BULLPEN — the haptics support window.
+/* BULLPEN — which haptic mechanism a device gets.
  *
- * Why this file exists:
+ * Why this file exists, and why it was rewritten once already:
  *
- *   Ruta asked for a buzz as she swipes. It shipped, and it did not buzz. The
- *   reason is not a bug in the app — it is that the only mechanism iOS has ever
- *   given a web page for haptics is a side effect of <input type=checkbox
- *   switch>, and Apple closed the SCRIPT-DRIVEN path in iOS 26.5. From 26.5 the
- *   haptic fires only for a genuine tap landing on a real switch, which a swipe
- *   never produces.
+ *   Ruta asked for a buzz as she swipes. It shipped and did nothing. iOS has
+ *   never had the Vibration API; the only thing that makes an iPhone tap back
+ *   is the system haptic WebKit plays when a real <input type="checkbox"
+ *   switch> is operated — and it has to be operated by a FINGER. Driving one
+ *   from script produced nothing on her iOS 18.7, proven side by side: a real
+ *   tap on a switch buzzed, a scripted click on one did not.
  *
- * So the app must not claim it can buzz when it cannot. The rule is a pure
- * function of the user-agent, and this pins it to real strings: the window is
- * [17.4, 26.5). Get the boundary wrong in either direction and the Settings row
- * lies to the player — either promising a buzz that never comes, or hiding one
- * that would have worked.
+ *   The first version of this test pinned a version window for the scripted
+ *   trick, [17.4, 26.5), which turned out to be beside the point — the scripted
+ *   path does not work inside that window either. A switch laid under the
+ *   finger is a different mechanism, and is not version-gated at all.
+ *
+ * The rule now: vibrate where the API exists, overlay on iOS, nothing else.
+ * The distinction matters to the UI, because overlay means TAPS ONLY — a swipe
+ * is one continuous touch and never operates a switch, so per-cell buzzing
+ * while painting cannot be done on iOS by any means.
  *
  * Run: node games/bullpen/test/haptics.test.js
  */
 
 const path = require("path");
 
-/* haptics.js is a browser IIFE. It only touches document/navigator inside
-   functions, and the two exported here are pure, so requiring it bare is safe.
-   (It reads localStorage at load, in a try/catch — hence the stub.) */
 global.localStorage = { getItem: () => null, setItem: () => {} };
 const Haptics = require(path.join(__dirname, "..", "js", "haptics.js"));
 
@@ -38,35 +39,44 @@ const iphone = (v) =>
   "Mozilla/5.0 (iPhone; CPU iPhone OS " + v.replace(".", "_") +
   " like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Safari/604.1";
 
-console.log("\n--- haptics: the iOS support window ---");
+const mode = (ua, platform, touch, vibrates) =>
+  Haptics._modeFor(ua, platform, touch, vibrates);
 
-/* --- reading the version out of the string ---------------------------- */
-assert("V.a an iPhone user-agent yields its version",
-  Haptics._iosVersionOf(iphone("18.2")) === 18.2, String(Haptics._iosVersionOf(iphone("18.2"))));
-assert("V.b a two-digit major is not truncated",
-  Haptics._iosVersionOf(iphone("26.5")) === 26.5, String(Haptics._iosVersionOf(iphone("26.5"))));
-assert("V.c a non-iOS agent yields nothing",
-  Haptics._iosVersionOf("Mozilla/5.0 (Linux; Android 14) Chrome/120") === null);
+console.log("\n--- haptics: which mechanism a device gets ---");
 
-/* --- the window ------------------------------------------------------- */
-const allowed = (v) => Haptics._leverAllowed(iphone(v), "iPhone", 5, false);
+assert("M.a Android, which has the real API, ticks from script",
+  mode("Mozilla/5.0 (Linux; Android 14) Chrome/120", "Linux", 5, true) === "vibrate");
 
-assert("H.a iOS 17.3 is too early — the switch element did not exist", allowed("17.3") === false);
-assert("H.b iOS 17.4 is the first version that works", allowed("17.4") === true);
-assert("H.c iOS 18.2 works", allowed("18.2") === true);
-assert("H.d iOS 26.4 is the last version that works", allowed("26.4") === true);
-assert("H.e iOS 26.5 is patched and must NOT be promised", allowed("26.5") === false);
-assert("H.f a version after the patch stays refused", allowed("27.1") === false);
+assert("M.b an iPhone gets the overlay, not a scripted tick",
+  mode(iphone("18.7"), "iPhone", 5, false) === "overlay");
 
-/* --- everything else -------------------------------------------------- */
-assert("H.g a desktop browser with no switch support is refused",
-  Haptics._leverAllowed("Mozilla/5.0 (Windows NT 10.0) Chrome/120", "Win32", 0, false) === false);
-assert("H.h an iPad reporting itself as MacIntel is still recognised as iOS",
-  Haptics._leverAllowed("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/17.4 Safari/605.1",
-                        "MacIntel", 5, false) === true,
+/* No version window any more, on purpose. The scripted trick is what Apple
+   patched in 26.5, and it did not work on 18.7 either. A real tap on a real
+   switch is a different mechanism and is not gated. */
+assert("M.c iOS 26.5, where the SCRIPTED trick is patched, still gets the overlay",
+  mode(iphone("26.5"), "iPhone", 5, false) === "overlay");
+
+assert("M.d old iOS gets it too — a tap is a tap",
+  mode(iphone("17.4"), "iPhone", 5, false) === "overlay");
+
+assert("M.e an iPad calling itself a Mac is still an iPad",
+  mode("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/17.4 Safari/605.1",
+       "MacIntel", 5, false) === "overlay",
   "iPadOS masquerades as a Mac; touch points give it away");
-assert("H.i an unknown engine that DOES expose the switch property gets the benefit of the doubt",
-  Haptics._leverAllowed("SomeFutureBrowser/1.0", "Unknown", 0, true) === true);
 
-console.log(failures === 0 ? "\nGREEN — haptics window clean.\n" : "\nRED — " + failures + " failure(s).\n");
+assert("M.f a real Mac is not an iPad",
+  mode("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/17.4 Safari/605.1",
+       "MacIntel", 0, false) === "none");
+
+assert("M.g a desktop browser with neither gets nothing",
+  mode("Mozilla/5.0 (Windows NT 10.0) Firefox/120", "Win32", 0, false) === "none");
+
+/* The scriptable one wins where both are possible: it can tick DURING a stroke,
+   and the overlay can only ever answer a tap. */
+assert("M.h where both are possible the scriptable one wins",
+  mode(iphone("18.7"), "iPhone", 5, true) === "vibrate");
+
+console.log(failures === 0
+  ? "\nGREEN — haptics mechanism clean.\n"
+  : "\nRED — " + failures + " failure(s).\n");
 process.exit(failures === 0 ? 0 : 1);

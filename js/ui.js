@@ -283,6 +283,53 @@ var UI = (function () {
       paintCell(i);
     }
     paintPens();
+    buildHapticOverlay();
+  }
+
+  /* A real <input type="checkbox" switch> over every cell — the only way an
+     iPhone can be made to tap back.
+
+     It has to be the thing the FINGER lands on. WebKit plays the system haptic
+     when a switch is genuinely operated; a switch clicked from script produces
+     nothing (tested on Ruta's iOS 18.7 side by side: real tap buzzed, scripted
+     click did not). So the switches sit on top, nearly transparent, and the
+     board's own pointer handlers go on receiving the events because they bubble
+     straight through.
+
+     TAPS ONLY, and unavoidably so: a swipe is one continuous touch, so no
+     switch is ever operated during a stroke. Per-cell buzzing while painting
+     cannot be done on iOS by any means.
+
+     A separate layer rather than a child of each cell, because a cell is a
+     <button> and a button may not contain interactive content. Absolutely
+     positioned children resolve against the padding box, which is exactly
+     where the grid of cells sits, so the two line up without measuring. */
+  function buildHapticOverlay() {
+    var old = boardEl.querySelector(".hapticlayer");
+    if (old) old.remove();
+    if (!Haptics.tapsOnly) return;        // Android buzzes from script instead
+
+    var layer = document.createElement("div");
+    layer.className = "hapticlayer";
+    layer.setAttribute("aria-hidden", "true");
+    layer.style.gridTemplateColumns = "repeat(" + Game.N + ", 1fr)";
+    for (var i = 0; i < Game.N * Game.N; i++) {
+      var sw = document.createElement("input");
+      sw.type = "checkbox";
+      sw.setAttribute("switch", "");
+      sw.tabIndex = -1;
+      layer.appendChild(sw);
+    }
+    boardEl.appendChild(layer);
+    syncHapticOverlay();
+  }
+
+  /* The Vibration setting governs the overlay by making it untouchable, not by
+     intercepting anything: there is no script step to intercept — the haptic is
+     WebKit's own response to the switch being operated. */
+  function syncHapticOverlay() {
+    var layer = boardEl && boardEl.querySelector(".hapticlayer");
+    if (layer) layer.classList.toggle("off", !Haptics.enabled);
   }
 
   function paintCell(i, landed) {
@@ -380,6 +427,17 @@ var UI = (function () {
     Haptics.tick();
   }
 
+  /* Claim the pointer once a tap has turned into a stroke. Deferred to here
+     rather than taken on pointerdown, because capturing to the board is one of
+     the two things that stops a tap from operating the switch above the cell.
+     A stroke has no such switch to protect, and capture is what keeps the paint
+     following a finger that wanders off the board. */
+  function captureStroke(e) {
+    if (drag.captured) return;
+    drag.captured = true;
+    try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* a nicety */ }
+  }
+
   /* Walk the straight line from the last painted cell to this one, so a fast
      flick paints the cells it flew over rather than two lonely endpoints. */
   function dragTo(i) {
@@ -400,7 +458,14 @@ var UI = (function () {
     if (drag || Game.won || Game.paused) return;
     var i = cellAt(e.clientX, e.clientY);
     if (i < 0) return;
-    e.preventDefault();
+    /* NOT preventDefault, and NOT captured — yet. Both cancel the activation of
+       the switch lying over this cell, and that activation IS the haptic. The
+       stroke takes them the moment it becomes a stroke (see onPointerMove);
+       until then this is a tap and must be left alone.
+
+       Nothing is lost by waiting: page scrolling is held off by the board's
+       touch-action:none, and iOS double-tap zoom by the touchend handler in
+       bindEvents(), neither of which depends on this. */
     Sound.unlock();
     clearHint();
 
@@ -419,7 +484,6 @@ var UI = (function () {
       changes: [],
       lastSound: 0
     };
-    try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* a nicety, not a requirement */ }
   }
 
   function onPointerMove(e) {
@@ -427,10 +491,10 @@ var UI = (function () {
     var i = cellAt(e.clientX, e.clientY);
     if (i < 0 || i === drag.last) return;
     e.preventDefault();
-    if (!drag.paints) { drag.moved = true; return; }
+    if (!drag.paints) { drag.moved = true; captureStroke(e); return; }
     /* The stroke only becomes a stroke once the pointer leaves its first cell.
        Until then it is still a tap, and a tap must be free to place a bull. */
-    if (!drag.moved) { drag.moved = true; dragApply(drag.start); }
+    if (!drag.moved) { drag.moved = true; captureStroke(e); dragApply(drag.start); }
     dragTo(i);
   }
 
@@ -907,6 +971,7 @@ var UI = (function () {
     $("btn-haptics").addEventListener("click", function () {
       if (!Haptics.supported) return;          // the row says so; do not pretend
       Haptics.setEnabled(!Haptics.enabled);
+      syncHapticOverlay();
       MetaUI.renderSettings();
     });
     $("btn-howto2").addEventListener("click", openHowto);

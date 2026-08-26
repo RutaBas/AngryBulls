@@ -175,7 +175,11 @@ function bootApp(store) {
     var Sound = nullDouble({ muted: false });
     /* ui.js ticks the haptics on every cell a stroke paints, so the stub has to
        exist here or a drag throws before it paints anything. */
-    var Haptics = nullDouble({ enabled: true, supported: true, backend: "none" });
+    /* tapsOnly:true so ui.js builds the switch overlay over the board here too:
+       that layer sits on top of every cell, and if it ever swallowed the events
+       the board's handlers need, taps and drags would die. This test is the only
+       thing that would notice. */
+    var Haptics = nullDouble({ enabled: true, supported: true, tapsOnly: true, mode: "overlay" });
     var Theme = nullDouble({ current: "cream" });
     var __screen = "home";
     var MetaUI = nullDouble({
