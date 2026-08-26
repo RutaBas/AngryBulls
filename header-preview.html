@@ -1,0 +1,92 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Header spread preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F3EAD6;--card:#FBF5E8;--rule:#6E2639;--chip:#E7DCC2;
+        --serif:"Playfair Display",Georgia,serif;--sans:"Nunito Sans",system-ui,sans-serif}
+  body{background:#d8cdb4;margin:0;padding:20px 0 50px;font-family:var(--sans);color:var(--rule)}
+  h2{width:375px;margin:18px auto 6px;font-family:var(--serif);font-size:16px;color:#3c2028;padding:0 6px;box-sizing:border-box}
+  .phone{width:375px;margin:0 auto;background:var(--bg);padding:14px 16px 20px;box-sizing:border-box;border-radius:18px}
+  .topbar{display:flex;align-items:center;gap:14px;margin-bottom:4px}
+  .gicon{width:26px;height:26px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+  .gicon i{background:var(--rule);border-radius:50%}
+  .home{font-size:20px}
+  .timer{margin-left:auto;background:var(--chip);border-radius:20px;padding:9px 16px;font-family:var(--serif);font-size:16px}
+  .levelbar{position:relative;text-align:center}
+  .lb-cur{height:78px}
+  .lb-new{height:160px}
+  .bignum{position:absolute;inset:0;font-family:var(--serif);font-size:72px;line-height:1;opacity:.15;pointer-events:none}
+  .bigdate{display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:54px}
+  .bigdate .mo{font-size:16px;font-style:italic;letter-spacing:.06em}
+  .lb-cur .levelrow{position:absolute;inset:0 0 15px;display:flex;align-items:center;justify-content:center;gap:22px}
+  .lb-cur .rulelbl{position:absolute;left:0;right:0;bottom:2px}
+  .lb-new .levelrow{position:absolute;inset:0 0 auto;height:40px;display:flex;align-items:center;justify-content:center;gap:22px}
+  .lb-new .bignum{inset:40px 0 24px;display:flex;align-items:center;justify-content:center}
+  .lb-new .rulelbl{position:absolute;left:0;right:0;bottom:2px}
+  .lbl{font-family:var(--serif);font-style:italic;font-size:17px}
+  .arw{opacity:.7;font-size:13px}
+  .rulelbl{font-family:var(--serif);font-style:italic;font-size:12.5px;opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .board{height:340px;border:2.5px solid var(--rule);border-radius:12px;background:
+    linear-gradient(90deg,#CBDFF2 0 22%,#F2D8C4 0 48%,#E0D6F0 0 75%,#FAE2BA 0);opacity:.9}
+  .under{font-family:var(--serif);font-style:italic;margin:12px 0 4px}
+  .dots i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--rule);margin-right:7px}
+  .dead{border:1.5px dashed rgba(110,38,57,.4);border-radius:10px;margin-top:12px;display:flex;align-items:center;justify-content:center;color:rgba(110,38,57,.55);font-size:12px}
+</style>
+
+<h2>CURRENT — daily (title and rule cross the big date)</h2>
+<div class="phone">
+  <div class="topbar"><span class="gicon"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="home">⌂</span><span class="timer">‖ 0:04</span></div>
+  <div class="levelbar lb-cur">
+    <div class="bignum bigdate"><span class="mo">August</span>26</div>
+    <div class="levelrow"><span class="lbl">Daily Hard · Rangeland</span></div>
+    <div class="rulelbl">Wednesday · Two bulls per pen, row &amp; column</div>
+  </div>
+  <div class="board"></div>
+  <div class="under">Remaining Bulls</div>
+  <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="dead" style="height:150px">dead space</div>
+</div>
+
+<h2>PROPOSED — daily (same sizes, spread into three bands)</h2>
+<div class="phone">
+  <div class="topbar"><span class="gicon"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="home">⌂</span><span class="timer">‖ 0:04</span></div>
+  <div class="levelbar lb-new">
+    <div class="levelrow"><span class="lbl">Daily Hard · Rangeland</span></div>
+    <div class="bignum bigdate"><span class="mo">August</span>26</div>
+    <div class="rulelbl">Wednesday · Two bulls per pen, row &amp; column</div>
+  </div>
+  <div class="board"></div>
+  <div class="under">Remaining Bulls</div>
+  <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="dead" style="height:68px">remaining dead space</div>
+</div>
+
+<h2>CURRENT — regular level (rule crosses the "47")</h2>
+<div class="phone">
+  <div class="topbar"><span class="gicon"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="home">⌂</span><span class="timer">‖ 0:14</span></div>
+  <div class="levelbar lb-cur">
+    <div class="bignum">47</div>
+    <div class="levelrow"><span class="arw">◀</span><span class="lbl">Rangeland</span><span class="arw">▶</span></div>
+    <div class="rulelbl">Two bulls per pen, row &amp; column</div>
+  </div>
+  <div class="board"></div>
+  <div class="under">Remaining Bulls</div>
+  <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="dead" style="height:150px">dead space</div>
+</div>
+
+<h2>PROPOSED — regular level</h2>
+<div class="phone">
+  <div class="topbar"><span class="gicon"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="home">⌂</span><span class="timer">‖ 0:14</span></div>
+  <div class="levelbar lb-new">
+    <div class="levelrow"><span class="arw">◀</span><span class="lbl">Rangeland</span><span class="arw">▶</span></div>
+    <div class="bignum">47</div>
+    <div class="rulelbl">Two bulls per pen, row &amp; column</div>
+  </div>
+  <div class="board"></div>
+  <div class="under">Remaining Bulls</div>
+  <div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="dead" style="height:68px">remaining dead space</div>
+</div>

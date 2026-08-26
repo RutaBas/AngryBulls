@@ -201,6 +201,15 @@
     <h3 class="seth">Sound &amp; feel</h3>
     <button class="rowbtn" id="btn-mute" type="button">Sound<span id="mute-state">On</span></button>
     <button class="rowbtn" id="btn-haptics" type="button">Vibration<span id="haptics-state">On</span></button>
+    <!-- A DIAGNOSTIC, not a setting. The whole row is a real <input switch>, so
+         a tap lands on the switch itself rather than on something that clicks a
+         switch elsewhere — the difference between the mechanism that works on
+         iOS and the one that does not. If this buzzes, per-cell tap haptics are
+         worth building; if it does not, nothing on this phone will. -->
+    <label class="rowbtn switchrow" id="row-haptic-test">Test vibration
+      <span id="haptic-test-state">tap this row</span>
+      <input type="checkbox" switch aria-label="Test vibration">
+    </label>
     <h3 class="seth">Progress</h3>
     <button class="rowbtn" id="btn-howto2" type="button">How to play<span>›</span></button>
     <button class="rowbtn danger" id="btn-reset" type="button">Reset all progress<span>⌫</span></button>

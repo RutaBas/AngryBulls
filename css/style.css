@@ -479,6 +479,16 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 /* A row the device cannot honour reads as unavailable rather than merely
    sitting there ignoring taps. Matches the disabled level arrows. */
 .rowbtn:disabled { opacity: .45; }
+/* The haptic test row. The switch covers the row INCLUDING its border (inset
+   is resolved against the padding box, which stops short of it), is barely
+   rather than fully transparent, and keeps its pointer events — anything that
+   reads as "not really interactive" risks WebKit declining to play the tick
+   that is the entire point. */
+.switchrow { position: relative; }
+.switchrow input[switch] {
+  position: absolute; inset: -2px; width: auto; height: auto; margin: 0;
+  opacity: .01; appearance: none; -webkit-appearance: none;
+}
 .is-dark .rowbtn.danger { color: #F0AFA9; }
 
 /* ---------------------------------------------------------------- win */

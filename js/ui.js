@@ -887,6 +887,19 @@ var UI = (function () {
       Sound.setMuted(!Sound.muted);
       MetaUI.renderSettings();
     });
+    /* Counted from the switch's own change event: a click on a label is
+       forwarded to its control and bubbles back, so counting clicks would score
+       every tap twice. `change` also means the switch really toggled, which is
+       what the haptic hangs off. */
+    (function () {
+      var box = $("row-haptic-test").querySelector("input[switch]");
+      var n = 0;
+      box.addEventListener("change", function () {
+        n++;
+        $("haptic-test-state").textContent =
+          "tapped " + n + "× — felt anything?";
+      });
+    })();
     $("btn-haptics").addEventListener("click", function () {
       if (!Haptics.supported) return;          // the row says so; do not pretend
       Haptics.setEnabled(!Haptics.enabled);
