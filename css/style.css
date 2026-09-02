@@ -181,10 +181,18 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 .pausebars { display: flex; gap: 3px; }
 .pausebars i { display: block; width: 3px; height: 12px; border-radius: 1px; background: var(--ink); opacity: .75; }
 
-.levelbar { position: relative; height: 78px; text-align: center; }
+/* The header is three stacked bands — title row, watermark numeral, rule line
+   — so no text ever overlaps another. The extra height comes out of the dead
+   space below the board. */
+.levelbar { position: relative; height: 126px; text-align: center; }
 .bignum {
   font-family: var(--serif); font-size: 72px; line-height: 1; opacity: .15;
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; inset: 34px 0 20px; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  /* Playfair's digits ride low in their box at line-height 1 (the baseline
+     lands at the box's bottom edge), so true centering needs this lift.
+     Measured against the ink, not the boxes. */
+  transform: translateY(-0.24em);
 }
 /* On dailies the numeral is the day of the month, which on its own reads like
    a level number. The month is stacked above it, smaller and italic, so it
@@ -194,13 +202,15 @@ button, .tappable { transition: transform .12s cubic-bezier(.34,1.4,.64,1); }
 .bignum.bignum-date {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 54px;
+  /* The stacked month adds ink at the top, which balances the stack's ink on
+     its own — the digit lift above would shove the month into the title. */
+  transform: none;
 }
 .bignum-mo {
   font-size: 16px; font-style: italic; line-height: 1; letter-spacing: .06em;
 }
-/* The rule sub-line sits INSIDE the levelbar's existing 78px, so naming the
-   bull count costs the board no vertical space at any grid size. */
-.levelrow { position: absolute; inset: 0 0 15px; display: flex; align-items: center; justify-content: center; gap: 22px; }
+/* The rule sub-line is the header's bottom band, fully below the numeral. */
+.levelrow { position: absolute; inset: 0 0 auto; height: 34px; display: flex; align-items: center; justify-content: center; gap: 22px; }
 .rulelbl {
   position: absolute; left: 0; right: 0; bottom: 2px;
   font-family: var(--serif); font-style: italic; font-size: 12.5px; line-height: 1.1;
