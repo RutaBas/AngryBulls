@@ -93,6 +93,22 @@ var Meta = (function () {
     starsFor: GameMeta.Progress.defaultStars
   });
 
+  /* A tier that grows (Rangeland went 1000 -> 2000) must not strand a player
+     who had already finished its old last level: recordWin never unlocks past
+     the tier's level count, so they sat at unlocked=1000 with 1001 locked. If
+     the highest unlocked level is already cleared, open the next one. Stars,
+     bests and plays are keyed by level number and are never touched here. */
+  (function extendUnlocks() {
+    var changed = false;
+    tiers.forEach(function (def) {
+      var t = meta.progress.state.tiers[def.key];
+      if (!t || !t.levels || !t.unlocked) return;
+      var top = t.levels[t.unlocked];
+      if (top && top.plays && t.unlocked < def.levels) { t.unlocked += 1; changed = true; }
+    });
+    if (changed) meta.progress.save();
+  })();
+
   meta.trackTier = TRACK_TIER;
   meta.dailyTrack = function (track) { return track === "hard" ? meta.daily2 : meta.daily; };
   /* The save file and win context carry only the tier, so the track is derived

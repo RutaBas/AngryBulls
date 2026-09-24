@@ -34,7 +34,7 @@ function check(name, ok, detail) {
 const DEFS = {};
 BULLPEN_TIERS.forEach((t) => { DEFS[t.key] = t; });
 
-// Sample evenly across each tier's 1000 levels.
+// Sample evenly across each tier's levels.
 const SAMPLES = 24;
 
 console.log("--- level rows rebuild the exact graded board ---");

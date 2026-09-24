@@ -14,7 +14,7 @@
    .githooks/. Do not edit it by hand; run the script. The activate handler
    deletes every cache that is not the current one. */
 
-var CACHE_VERSION = "bullpen-51a00961473f";
+var CACHE_VERSION = "bullpen-18d3814d9943";
 
 var PRECACHE = [
   "./",
@@ -35,7 +35,7 @@ var PRECACHE = [
   "./js/meta/records.js",
   "./js/meta/rank.js",
   "./js/meta/index.js",
-  // the app layer — js/levels.js is the 4,000-level table and is what makes
+  // the app layer — js/levels.js is the 5,000-level table and is what makes
   // offline campaign play possible at all.
   "./js/par.js",
   "./js/levels.js",

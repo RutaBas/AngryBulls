@@ -116,7 +116,14 @@ const TIERS = [
      ramp instead of splitting the tier into an 8x8 half and a 9x9 half. */
   { key: "pasture",   name: "Pasture",   gen: "medium",  N: 8,  sizes: [8, 9], k: 1, levels: 1000, floor: "line-in-region", sizeBonus: 0.45,
     gens: [{ key: "medium8", N: 8, w: 5 }, { key: "medium9", N: 9, w: 1 }] },
-  { key: "rangeland", name: "Rangeland", gen: "hard",    N: 9,  sizes: [9],    k: 2, levels: 1000, floor: null },
+  /* Rangeland was extended from 1000 to 2000 levels AFTER it shipped. Progress
+     is saved by level number, so re-ramping all 2000 together would have moved
+     a different board under every existing star. `segments` freezes that: slots
+     1-1000 are ramped exactly as before, and slots 1001-2000 get a ramp of
+     their own appended after them (difficulty restarts at 1001 — the "hard"
+     generator has no harder 9x9 boards to give). */
+  { key: "rangeland", name: "Rangeland", gen: "hard",    N: 9,  sizes: [9],    k: 2, levels: 2000, floor: null,
+    segments: [1000] },
   { key: "badlands",  name: "Badlands",  gen: "extreme", N: 10, sizes: [10],   k: 2, levels: 1000, floor: null }
 ];
 
@@ -299,9 +306,8 @@ function emit() {
 
   for (const tier of TIERS) {
     const cache = loadCache(tier.key);
-    const rows = Object.keys(cache)
-      .map((k) => cache[k])
-      .filter(Boolean);
+    const slots = Object.keys(cache).filter((k) => cache[k] && +k <= tier.levels);
+    const rows = slots.map((k) => cache[k]);
 
     // ---- HARD ASSERT: every layout in the tier must be distinct.
     // Keyed by grid size + layout, because a mixed-size tier's pen keys are of
@@ -341,32 +347,42 @@ function emit() {
        are interleaved in proportion all the way down, and levels 1-100 now
        contain the gentle end of BOTH populations rather than only the 6x6s.
 
-       For a single-size tier this is identical to the old global sort. */
-    const byGen = new Map();
-    for (const r of rows) {
-      const g = r[4] || tier.gen;
-      if (!byGen.has(g)) byGen.set(g, []);
-      byGen.get(g).push(r);
-    }
-    const cand = [];
-    for (const [g, list] of byGen) {
-      list.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
-      list.forEach((r, i) => cand.push({
-        seed: r[0], effort: r[1], key: r[2], N: r[3], gen: g,
-        // rampRatio is the level's place in the ladder, and drives par. It is
-        // captured BEFORE the dispersion pass so par tracks real difficulty.
-        rampRatio: list.length > 1 ? i / (list.length - 1) : 0.5,
-        vec: M.characterVector(r[2], r[3]),
-      }));
-    }
-    cand.sort((a, b) => a.rampRatio - b.rampRatio || a.effort - b.effort || a.seed - b.seed);
+       For a single-size tier this is identical to the old global sort.
+
+       A tier with `segments` runs all of this once PER SEGMENT of slots and
+       concatenates the results, so a segment that has already shipped comes
+       out exactly as it did before later slots were added. */
+    const cuts = (tier.segments || []).concat([Infinity]);
+    const segRows = cuts.map(() => []);
+    slots.forEach((k, i) => segRows[cuts.findIndex((c) => +k <= c)].push(rows[i]));
 
     const ordered = [];
     let carry = null;
-    for (let s = 0; s < cand.length; s += BLOCK) {
-      const block = disperse(cand.slice(s, s + BLOCK), carry, tier.sizeBonus);
-      for (const c of block) ordered.push(c);
-      carry = block[block.length - 1];
+    for (const seg of segRows) {
+      const byGen = new Map();
+      for (const r of seg) {
+        const g = r[4] || tier.gen;
+        if (!byGen.has(g)) byGen.set(g, []);
+        byGen.get(g).push(r);
+      }
+      const cand = [];
+      for (const [g, list] of byGen) {
+        list.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+        list.forEach((r, i) => cand.push({
+          seed: r[0], effort: r[1], key: r[2], N: r[3], gen: g,
+          // rampRatio is the level's place in the ladder, and drives par. It is
+          // captured BEFORE the dispersion pass so par tracks real difficulty.
+          rampRatio: list.length > 1 ? i / (list.length - 1) : 0.5,
+          vec: M.characterVector(r[2], r[3]),
+        }));
+      }
+      cand.sort((a, b) => a.rampRatio - b.rampRatio || a.effort - b.effort || a.seed - b.seed);
+
+      for (let s = 0; s < cand.length; s += BLOCK) {
+        const block = disperse(cand.slice(s, s + BLOCK), carry, tier.sizeBonus);
+        for (const c of block) ordered.push(c);
+        carry = block[block.length - 1];
+      }
     }
 
     out[tier.key] = ordered.map((c) => {

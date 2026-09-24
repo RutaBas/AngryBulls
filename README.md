@@ -3,7 +3,7 @@
 Star Battle, penned. An N×N grid is split into N irregular **pens**; place exactly **k bulls**
 in every row, every column and every pen — and no two bulls may touch, not even at a corner.
 
-4,000 solver-verified boards across four tiers, plus a daily challenge. Vanilla HTML/CSS/JS,
+5,000 solver-verified boards across four tiers, plus a daily challenge. Vanilla HTML/CSS/JS,
 no build step, no backend, fully playable offline once installed.
 
 Open `index.html` and play.
@@ -27,7 +27,7 @@ Open `index.html` and play.
 |---|---|---|---|---|
 | **Paddock** | 6×6 | 1 | 1000 | — |
 | **Pasture** | 8×8 | 1 | 1000 | — |
-| **Rangeland** | 9×9 | 2 | 1000 | — |
+| **Rangeland** | 9×9 | 2 | 2000 | — |
 | **Badlands** | 10×10 | 2 | 1000 | 150 levels cleared |
 
 Stars: **3** for a clean solve (no hints, no mistakes) under par, **2** for a clean solve over
@@ -55,7 +55,7 @@ explanation.
 
 ### The level table
 
-`js/levels.js` is a static table of `[seed, effort, par]` triples — 4,000 rows, ~115 KB, cached
+`js/levels.js` is a static table of `[seed, effort, par]` triples — 5,000 rows, ~160 KB, cached
 by the service worker. A board is rebuilt from its seed on the device by the same certified
 generator, so nothing about a puzzle is stored except the number that reproduces it.
 
@@ -67,6 +67,9 @@ Two details that matter:
 - Levels are **ramped**, not raw. Every candidate is graded by the solver's own `effort`, the
   1,000 candidates in a tier are sorted, and level numbers are assigned along that ramp — level
   5 of Rangeland is the gentlest board that still needs set-cover, level 995 the hardest.
+- Rangeland was extended to 2,000 levels after it shipped. Progress is saved by level number,
+  so levels 1–1000 are frozen as they were, and 1001–2000 are a second ramp of their own
+  (the `segments` field in `scripts/build-levels.js`). Difficulty restarts at 1001.
 
 Pasture additionally carries a **minimum-technique floor** (`line-in-region`): without it about
 60% of 8×8 boards graded at the same top technique as Paddock, just on a bigger grid.
@@ -80,7 +83,7 @@ js/rng.js                seeded PRNG + hashSeed          ] the certified
 js/solver.js             deduction engine, hints, uniqueness ] logic core —
 js/generator.js          solution-first board generation  ] read-only
 js/par.js                par times, shared by campaign and daily
-js/levels.js             GENERATED — 4,000 [seed, effort, par] rows
+js/levels.js             GENERATED — 5,000 [seed, effort, par] rows
 js/meta/                 vendored from games/_shared/meta (never edited)
 js/meta-config.js        mounts the meta-layer: tiers, gates, curves, daily
 js/meta-ui.js            home, level map, calendar, records, settings, win
