@@ -47,6 +47,7 @@ var Game = (function () {
     history: [],
     hints: 0,
     mistakes: 0,
+    pending: {},          // cell -> play-clock ms when a WRONG bull landed there
     startedAt: 0,
     accumulated: 0,
     running: false,
@@ -92,6 +93,7 @@ var Game = (function () {
     G.history = [];
     G.hints = 0;
     G.mistakes = 0;
+    G.pending = {};
     G.accumulated = 0;
     G.startedAt = Date.now();
     G.running = true;
@@ -163,6 +165,22 @@ var Game = (function () {
 
   /* ---------------------------------------------------------------- moves */
 
+  /* TAKE-BACKS ARE FREE. A wrong bull taken off again within GRACE_MS of play
+     time is a mis-tap, not a wrong guess, and its mistake is handed back —
+     whether it went by tapping the cell again, Undo or Clear. Play time, not
+     wall time, so a pause neither stretches nor spends the window.
+
+     This can't be used to test cells for free: nothing on screen says whether
+     a bull is right or wrong (the flash is only for broken rules, which the
+     player can see anyway), so removing a bull quickly teaches nothing. */
+  var GRACE_MS = 12000;
+
+  function bullLeft(i) {
+    if (!(i in G.pending)) return;
+    if (elapsedMs() - G.pending[i] <= GRACE_MS && G.mistakes > 0) G.mistakes--;
+    delete G.pending[i];
+  }
+
   /* THE single write path for a cell, so undo, mistake counting and auto-save
      all have one place to hook into. Returns a report the UI animates from. */
   function setMark(i, val, opts) {
@@ -171,6 +189,7 @@ var Game = (function () {
     if (prev === val) return null;
     if (!opts.noHistory) G.history.push({ t: "set", i: i, prev: prev });
     G.marks[i] = val;
+    if (prev === M_BULL) bullLeft(i);
 
     var rep = { cell: i, from: prev, to: val, violations: [], penDone: -1, mistake: false };
 
@@ -178,8 +197,8 @@ var Game = (function () {
       /* MISTAKES ARE COUNTED FROM THE BOARD. A bull standing where the
          solution has none is a mistake the moment it is placed — nothing here
          cares whether the player pressed a "check" button, because there
-         isn't one. */
-      if (!G.solution[i]) { G.mistakes++; rep.mistake = true; }
+         isn't one. It is only provisional for GRACE_MS (see bullLeft). */
+      if (!G.solution[i]) { G.mistakes++; G.pending[i] = elapsedMs(); rep.mistake = true; }
       rep.violations = violationsAt(i);
       if (!rep.violations.length && countBulls(penCells(G.pens[i])) === G.k) {
         rep.penDone = G.pens[i];
@@ -220,7 +239,9 @@ var Game = (function () {
     var op = G.history.pop();
     if (!op) return null;
     if (op.t === "set") {
+      var was = G.marks[op.i];
       G.marks[op.i] = op.prev;
+      if (was === M_BULL && op.prev !== M_BULL) bullLeft(op.i);
       return { cell: op.i };
     }
     if (op.t === "multi") {
@@ -240,6 +261,7 @@ var Game = (function () {
 
   function clear() {
     G.history.push({ t: "bulk", prev: Int8Array.from(G.marks) });
+    for (var i = 0; i < G.marks.length; i++) if (G.marks[i] === M_BULL) bullLeft(i);
     G.marks = new Int8Array(G.N * G.N);
   }
 
@@ -482,7 +504,7 @@ var Game = (function () {
         v: 1, mode: G.mode, tier: G.tier, level: G.level, dateKey: G.dateKey,
         genTier: G.genTier, seed: G.seed, par: G.par,
         marks: marks, ms: elapsedMs(), hints: G.hints, mistakes: G.mistakes,
-        paused: !!G.paused, hist: encodeHistory()
+        pend: G.pending, paused: !!G.paused, hist: encodeHistory()
       }));
     } catch (e) { /* private mode / quota — play continues, just unsaved */ }
   }
@@ -516,6 +538,14 @@ var Game = (function () {
     G.startedAt = Date.now();
     G.hints = s.hints || 0;
     G.mistakes = s.mistakes || 0;
+    /* Saves from before take-backs existed have no `pend`: every mistake in
+       them simply stays counted, exactly as it was when it was saved. */
+    G.pending = {};
+    if (s.pend && typeof s.pend === "object") {
+      for (var k in s.pend) {
+        if (G.marks[+k] === M_BULL && typeof s.pend[k] === "number") G.pending[+k] = s.pend[k];
+      }
+    }
     G.history = decodeHistory(s.hist);
     /* A board saved paused comes back paused, and — because `running` stays
        false — elapsedMs() is still exactly what it was when the app closed.

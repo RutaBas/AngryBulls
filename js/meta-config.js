@@ -70,11 +70,32 @@ var Meta = (function () {
      so pre-split history and streaks carry into the Easy track. */
   var TRACK_TIER = { easy: "paddock", hard: "rangeland" };
 
+  /* STARS. Three things can each cost ONE star: finishing over par, taking a
+     hint, and placing a wrong bull. A solve always earns at least one.
+
+       clean, under par ........ 3
+       one of the three ........ 2
+       two or three of them .... 1
+
+     The library default made any hint or mistake drop straight to one star,
+     which punished a single slip as hard as leaning on hints all the way. This
+     rule only ever gives the same or MORE stars than the old one for the same
+     solve, and stored stars are kept as the best ever earned (progress.js) and
+     never recomputed, so no saved result can go down. */
+  function starsFor(res, par) {
+    var lost = 0;
+    if (!(par && res.ms <= par)) lost++;
+    if (res.hints) lost++;
+    if (res.mistakes) lost++;
+    return Math.max(1, 3 - lost);
+  }
+
   var meta = GameMeta.create({
     id: "bullpen",
     prefix: "bull",
     tiers: tiers,
     curves: curves,
+    starsFor: starsFor,
     daily: {
       tier: TRACK_TIER.easy,
       freezes: { max: 3, earnEvery: 7 },
@@ -90,7 +111,7 @@ var Meta = (function () {
     tier: TRACK_TIER.hard,
     freezes: { max: 3, earnEvery: 7 },
     firstDay: "2026-07-01",
-    starsFor: GameMeta.Progress.defaultStars
+    starsFor: starsFor
   });
 
   /* A tier that grows (Rangeland went 1000 -> 2000) must not strand a player
@@ -144,6 +165,7 @@ var Meta = (function () {
 
   /* --- game-specific helpers layered on top ------------------------------ */
 
+  meta.starsFor = starsFor;
   meta.ladder = LADDER;
   meta.defOf = function (tierKey) { return DEFS[tierKey]; };
 
